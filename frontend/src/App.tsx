@@ -1,15 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Play, Pause, SkipBack, SkipForward, Music, Radio, Settings, Moon, Sun, Shuffle, Repeat } from 'lucide-react'
+import { Play, Pause, SkipBack, SkipForward, Music, Radio, Settings as SettingsIcon, Moon, Sun, Shuffle, Repeat } from 'lucide-react'
 import { pageVariants, staggerContainer, cardHover, buttonPulse, fadeInUp, slideInLeft, springConfig } from './lib/animations'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import AudioVisualizer from './components/AudioVisualizer'
 import ProgressBar from './components/ProgressBar'
 import VolumeControl from './components/VolumeControl'
 import RFIDCardManager from './components/RFIDCardManager'
 import MediaLibrary from './components/MediaLibrary'
 import QuickPlayLibrary from './components/QuickPlayLibrary'
+import Settings from './components/Settings'
+import Equalizer from './components/Equalizer'
+import { AudioEnhancementService, EQUALIZER_PRESETS } from './services/audioEnhancement'
 
 interface AudioTrack {
   id: string;
@@ -49,6 +53,10 @@ function App() {
 
   // Audio element for browser playback
   const audioRef = useRef<HTMLAudioElement>(null);
+  
+  // Audio enhancement service
+  const [audioEnhancementService, setAudioEnhancementService] = useState<AudioEnhancementService | null>(null);
+  const [currentEQPreset, setCurrentEQPreset] = useState('flat');
 
   const API_BASE = 'http://localhost:3001/api';
 
@@ -64,6 +72,11 @@ function App() {
 
   const handlePlay = async () => {
     try {
+      // Initialize audio enhancement service on first play (user interaction required)
+      if (!audioEnhancementService) {
+        await initializeAudioEnhancement();
+      }
+
       if (playbackMode === 'browser' && audioRef.current && playbackState.currentTrack) {
         // Browser playback
         console.log(`🌐 [FRONTEND] Starting browser playback`);
@@ -72,10 +85,20 @@ function App() {
         setBrowserControlledState(true);
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
-          playPromise.then(() => {
+          playPromise.then(async () => {
             console.log(`✅ [FRONTEND] Browser playback started successfully`);
             setPlaybackState(prev => ({ ...prev, isPlaying: true }));
             setNeedsUserInteraction(false);
+            
+            // Apply fade-in if audio enhancement is available
+            if (audioEnhancementService) {
+              try {
+                await audioEnhancementService.fadeIn();
+              } catch (error) {
+                console.warn('Fade-in failed:', error);
+              }
+            }
+            
             // Update backend state to keep in sync
             fetch(`${API_BASE}/audio/play`, {
               method: 'POST',
@@ -109,6 +132,16 @@ function App() {
         // Browser playback
         console.log(`🌐 [FRONTEND] Pausing browser playback`);
         setBrowserControlledState(false);
+        
+        // Apply fade-out if audio enhancement is available
+        if (audioEnhancementService) {
+          try {
+            await audioEnhancementService.fadeOut();
+          } catch (error) {
+            console.warn('Fade-out failed:', error);
+          }
+        }
+        
         audioRef.current.pause();
         setPlaybackState(prev => ({ ...prev, isPlaying: false }));
         
@@ -181,6 +214,68 @@ function App() {
     // Ensure dark mode is applied on initial load
     document.documentElement.classList.add('dark');
   }, []);
+
+  // Initialize audio enhancement service (delayed until user interaction)
+  const initializeAudioEnhancement = useCallback(async () => {
+    if (audioRef.current && !audioEnhancementService) {
+      const service = new AudioEnhancementService();
+      try {
+        await service.initialize(audioRef.current);
+        setAudioEnhancementService(service);
+        console.log('🎵 [AUDIO-ENHANCEMENT] Service initialized successfully');
+        return true;
+      } catch (error) {
+        console.error('❌ [AUDIO-ENHANCEMENT] Failed to initialize:', error);
+        return false;
+      }
+    }
+    return false;
+  }, [audioRef.current, audioEnhancementService]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (audioEnhancementService) {
+        audioEnhancementService.destroy();
+      }
+    };
+  }, [audioEnhancementService]);
+
+  // Handle equalizer preset change
+  const handleEQPresetChange = useCallback((presetName: string) => {
+    if (audioEnhancementService) {
+      audioEnhancementService.setEqualizerEnabled(true);
+      audioEnhancementService.setEqualizerPreset(presetName);
+      setCurrentEQPreset(presetName);
+      console.log(`🎵 [PLAYER] EQ preset changed to: ${presetName}`);
+    }
+  }, [audioEnhancementService]);
+
+  // Handle volume change
+  const handleVolumeChange = useCallback((newVolume: number) => {
+    setVolume(newVolume);
+    
+    // Apply volume to browser audio element
+    if (audioRef.current) {
+      audioRef.current.volume = newVolume / 100;
+    }
+    
+    // Apply volume to shared audio context if available
+    const sharedAudio = audioEnhancementService?.getSettings?.() || null;
+    if (audioEnhancementService) {
+      // The volume is already handled by the shared audio context's gain node
+      // which gets set through the fade functions
+    }
+    
+    console.log(`🔊 [PLAYER] Volume changed to: ${newVolume}%`);
+  }, [audioEnhancementService]);
+
+  // Apply volume when audio element changes
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume / 100;
+    }
+  }, [audioRef.current, volume]);
 
   // Handle playback mode changes
   const handlePlaybackModeChange = async (mode: 'browser' | 'hardware') => {
@@ -466,7 +561,7 @@ function App() {
     { id: 'player', label: 'Player', icon: Music },
     { id: 'library', label: 'Library', icon: Radio },
     { id: 'rfid', label: 'Cards', icon: Radio },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
   return (
@@ -836,7 +931,8 @@ function App() {
 
                         <VolumeControl
                           volume={volume}
-                          onVolumeChange={setVolume}
+                          onVolumeChange={handleVolumeChange}
+                          className="ml-2"
                         />
                       </div>
 
@@ -856,8 +952,9 @@ function App() {
                         </motion.div>
                       )}
 
-                      {/* Playback Mode Toggle */}
-                      <div className="flex items-center space-x-4">
+                      {/* Controls Row */}
+                      <div className="flex items-center justify-between w-full">
+                        {/* Playback Mode Toggle */}
                         <div className="flex items-center space-x-2">
                           <span className="text-sm text-slate-300">Playback:</span>
                           <div className="flex bg-slate-800/50 rounded-lg p-1">
@@ -879,6 +976,28 @@ function App() {
                             </Button>
                           </div>
                         </div>
+
+                        {/* Equalizer Preset */}
+                        {audioEnhancementService && (
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-slate-300">EQ:</span>
+                            <Select
+                              value={currentEQPreset}
+                              onValueChange={handleEQPresetChange}
+                            >
+                              <SelectTrigger className="w-28 h-8 text-xs bg-slate-800/50 border-slate-600/50">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(EQUALIZER_PRESETS).map(([key, preset]) => (
+                                  <SelectItem key={key} value={key} className="text-xs">
+                                    {preset.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         
                         {/* Status */}
                         <div className="flex items-center space-x-2">
@@ -946,13 +1065,11 @@ function App() {
             )}
 
             {activeTab === 'settings' && (
-              <GlassCard className="p-8">
-                <h2 className="text-2xl font-bold mb-6 text-slate-100">Settings</h2>
-                <div className="text-center py-12">
-                  <Settings className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-                  <p className="text-slate-300">Settings panel coming soon</p>
-                </div>
-              </GlassCard>
+              <Settings 
+                isVisible={activeTab === 'settings'} 
+                audioEnhancementService={audioEnhancementService}
+                onInitializeAudio={initializeAudioEnhancement}
+              />
             )}
           </motion.main>
         </AnimatePresence>

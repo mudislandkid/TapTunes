@@ -620,12 +620,8 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
           key={track.id}
           variants={fadeInUp}
           transition={{ delay: index * 0.05 }}
-          whileHover={{ x: 4 }}
         >
           <motion.div
-            variants={cardHover}
-            whileHover="hover"
-            whileTap="tap"
           >
             <GlassCard className="p-4 hover:bg-slate-800/60 transition-all group cursor-pointer">
               <div className="flex items-center space-x-4">
@@ -668,8 +664,8 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                 </div>
 
                 <motion.div
-                  className="opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1"
-                  initial={{ opacity: 0 }}
+                  className="opacity-70 group-hover:opacity-100 transition-opacity flex space-x-1"
+                  initial={{ opacity: 0.7 }}
                   whileHover={{ opacity: 1 }}
                 >
                   <motion.div
@@ -680,17 +676,22 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handlePlayTrack(track)}
-                      className="h-8 w-8"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePlayTrack(track);
+                      }}
+                      className="h-8 w-8 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30"
+                      title={`Play "${track.title}"`}
                     >
-                      <Play className="w-4 h-4" />
+                      <Play className="w-4 h-4 text-blue-300" />
                     </Button>
                   </motion.div>
                   
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 hover:bg-slate-600/40"
+                    title="More options"
                   >
                     <MoreHorizontal className="w-4 h-4" />
                   </Button>

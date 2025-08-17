@@ -15,6 +15,7 @@ export default function VolumeControl({ volume, onVolumeChange, className }: Vol
   const [showSlider, setShowSlider] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [previousVolume, setPreviousVolume] = useState(volume)
+  const [sliderTimeout, setSliderTimeout] = useState<NodeJS.Timeout | null>(null)
 
   const getVolumeIcon = () => {
     if (isMuted || volume === 0) return VolumeX
@@ -33,6 +34,37 @@ export default function VolumeControl({ volume, onVolumeChange, className }: Vol
     }
   }
 
+  const handleVolumeClick = () => {
+    setShowSlider(!showSlider)
+    
+    // Clear existing timeout
+    if (sliderTimeout) {
+      clearTimeout(sliderTimeout)
+    }
+    
+    // Auto-hide slider after 3 seconds of no interaction
+    if (!showSlider) {
+      const timeout = setTimeout(() => {
+        setShowSlider(false)
+      }, 3000)
+      setSliderTimeout(timeout)
+    }
+  }
+
+  const handleMouseEnter = () => {
+    setShowSlider(true)
+    if (sliderTimeout) {
+      clearTimeout(sliderTimeout)
+      setSliderTimeout(null)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    if (!sliderTimeout) {
+      setShowSlider(false)
+    }
+  }
+
   const handleVolumeChange = (newVolume: number) => {
     setIsMuted(false)
     onVolumeChange(newVolume)
@@ -47,8 +79,8 @@ export default function VolumeControl({ volume, onVolumeChange, className }: Vol
   return (
     <motion.div 
       className={`relative ${className}`}
-      onMouseEnter={() => setShowSlider(true)}
-      onMouseLeave={() => setShowSlider(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       variants={scaleIn}
       initial="initial"
       animate="animate"
@@ -62,7 +94,12 @@ export default function VolumeControl({ volume, onVolumeChange, className }: Vol
           variant="ghost"
           size="icon"
           onClick={handleMute}
-          className="glass-card h-10 w-10"
+          onContextMenu={(e) => {
+            e.preventDefault()
+            handleVolumeClick()
+          }}
+          className="glass-card h-12 w-12"
+          title="Left-click to mute/unmute, right-click for volume slider"
         >
           <motion.div
             key={VolumeIcon.name}
@@ -70,7 +107,7 @@ export default function VolumeControl({ volume, onVolumeChange, className }: Vol
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.2 }}
           >
-            <VolumeIcon className="w-4 h-4" />
+            <VolumeIcon className="w-5 h-5" />
           </motion.div>
         </Button>
       </motion.div>
@@ -84,8 +121,10 @@ export default function VolumeControl({ volume, onVolumeChange, className }: Vol
           scale: showSlider ? 1 : 0.95
         }}
         transition={{ duration: 0.2, ...springConfig }}
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-3 glass-card"
+        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-4 glass-card"
         style={{ pointerEvents: showSlider ? 'auto' : 'none' }}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         <motion.div 
           className="flex flex-col items-center space-y-3"
@@ -103,7 +142,7 @@ export default function VolumeControl({ volume, onVolumeChange, className }: Vol
             {Math.round(volume)}%
           </motion.span>
           
-          <div className="h-24 flex items-center">
+          <div className="h-32 flex items-center">
             <motion.div
               initial={{ opacity: 0.7 }}
               animate={{ opacity: 1 }}
@@ -115,7 +154,7 @@ export default function VolumeControl({ volume, onVolumeChange, className }: Vol
                 max={100}
                 step={1}
                 orientation="vertical"
-                className="h-20"
+                className="h-28"
               />
             </motion.div>
           </div>

@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import audioRoutes from './routes/audio';
 import rfidRoutes from './routes/rfid';
 import mediaRoutes from './routes/media';
+import systemRoutes from './routes/system';
+import settingsRoutes from './routes/settings';
 
 dotenv.config();
 
@@ -20,6 +22,8 @@ app.get('/health', (req, res) => {
 app.use('/api/audio', audioRoutes);
 app.use('/api/rfid', rfidRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/system', systemRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.listen(PORT, () => {
   console.log(`🎵 TapTunes Server running on port ${PORT}`);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { scaleIn, pulse } from '../lib/animations'
+import { SharedAudioContextService } from '../services/sharedAudioContext'
 
 interface AudioVisualizerProps {
   isPlaying: boolean
@@ -40,42 +41,34 @@ export default function AudioVisualizer({
       try {
         console.log('🎵 [VISUALIZER] Initializing real-time audio analysis')
         
-        // Create AudioContext
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-        audioContextRef.current = audioContext
-
-        // Create analyser node
-        const analyser = audioContext.createAnalyser()
-        // FFT size must be a power of 2, so we'll find the nearest power of 2 >= bars * 2
-        const desiredSize = bars * 2
-        const fftSize = Math.pow(2, Math.ceil(Math.log2(desiredSize)))
-        const finalFftSize = Math.max(256, fftSize)
-        analyser.fftSize = finalFftSize // Minimum 256 for good frequency resolution
-        analyser.smoothingTimeConstant = 0.75
-        analyser.minDecibels = -90
-        analyser.maxDecibels = -10
-        analyserRef.current = analyser
+        const sharedAudio = SharedAudioContextService.getInstance()
         
-        console.log(`🎵 [VISUALIZER] FFT size: ${finalFftSize} (bars: ${bars}, desired: ${desiredSize})`)
-
-        // Create data array for frequency data
-        const bufferLength = analyser.frequencyBinCount
-        const dataArray = new Uint8Array(bufferLength)
-        dataArrayRef.current = dataArray
-
-        // Create source from audio element (only if not already connected)
-        if (!sourceRef.current) {
-          const source = audioContext.createMediaElementSource(audioElement)
-          sourceRef.current = source
-
-          // Connect nodes: source -> analyser -> destination
-          source.connect(analyser)
-          analyser.connect(audioContext.destination)
-        }
-
-        setIsInitialized(true)
-        setUseRealAudio(true)
-        console.log('✅ [VISUALIZER] Real-time audio analysis ready')
+        // Initialize shared audio context
+        await sharedAudio.initialize(audioElement)
+        
+        // Subscribe to the analyser node from shared audio context
+        sharedAudio.subscribeToAnalyser((analyser) => {
+          analyserRef.current = analyser
+          
+          // Update FFT size if needed
+          const desiredSize = bars * 2
+          const fftSize = Math.pow(2, Math.ceil(Math.log2(desiredSize)))
+          const finalFftSize = Math.max(256, fftSize)
+          
+          if (analyser.fftSize !== finalFftSize) {
+            analyser.fftSize = finalFftSize
+            console.log(`🎵 [VISUALIZER] FFT size updated: ${finalFftSize}`)
+          }
+          
+          // Create data array for frequency data
+          const bufferLength = analyser.frequencyBinCount
+          const dataArray = new Uint8Array(bufferLength)
+          dataArrayRef.current = dataArray
+          
+          setIsInitialized(true)
+          setUseRealAudio(true)
+          console.log('✅ [VISUALIZER] Real-time audio analysis ready via shared context')
+        })
 
       } catch (error) {
         console.warn('⚠️ [VISUALIZER] Failed to initialize audio context, using fallback:', error)
