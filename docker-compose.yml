@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:3001
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./audio:/app/audio
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+
+  rfid-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.rfid
+    depends_on:
+      - backend
+    environment:
+      - BACKEND_URL=http://backend:3001
+    privileged: true
+    volumes:
+      - /dev:/dev
+    restart: unless-stopped
+
+volumes:
+  audio_data:
+  app_data:
