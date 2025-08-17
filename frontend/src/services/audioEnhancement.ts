@@ -131,9 +131,7 @@ export const EQUALIZER_PRESETS = {
 export class AudioEnhancementService {
   private sharedAudio: SharedAudioContextService;
   private equalizerNodes: BiquadFilterNode[] = [];
-  private crossfadeGainNodes: GainNode[] = [];
   private currentAudioElement: HTMLAudioElement | null = null;
-  private nextAudioElement: HTMLAudioElement | null = null;
   private settings: AudioEnhancementSettings;
 
   constructor() {
@@ -215,35 +213,6 @@ export class AudioEnhancementService {
     console.log(`🎵 [AUDIO-ENHANCEMENT] Created ${this.equalizerNodes.length} equalizer nodes`);
   }
 
-  private connectAudioGraph(): void {
-    if (!this.sourceNode || !this.gainNode || !this.audioContext) return;
-
-    try {
-      // Disconnect everything first
-      this.sourceNode.disconnect();
-      this.gainNode.disconnect();
-      this.equalizerNodes.forEach(node => node.disconnect());
-
-      // Connect: source -> equalizer chain -> gain -> destination
-      let currentNode: AudioNode = this.sourceNode;
-
-      // Connect equalizer chain
-      if (this.settings.equalizer.enabled && this.equalizerNodes.length > 0) {
-        this.equalizerNodes.forEach((filterNode, index) => {
-          currentNode.connect(filterNode);
-          currentNode = filterNode;
-        });
-      }
-
-      // Connect to gain node and destination
-      currentNode.connect(this.gainNode);
-      this.gainNode.connect(this.audioContext.destination);
-
-      console.log('🎵 [AUDIO-ENHANCEMENT] Audio graph connected successfully');
-    } catch (error) {
-      console.error('❌ [AUDIO-ENHANCEMENT] Failed to connect audio graph:', error);
-    }
-  }
 
   updateSettings(newSettings: Partial<AudioEnhancementSettings>): void {
     this.settings = { ...this.settings, ...newSettings };
@@ -304,7 +273,7 @@ export class AudioEnhancementService {
     await this.sharedAudio.fadeVolume(0, duration);
   }
 
-  async crossfade(fromElement: HTMLAudioElement, toElement: HTMLAudioElement): Promise<void> {
+  async crossfade(_fromElement: HTMLAudioElement, _toElement: HTMLAudioElement): Promise<void> {
     const audioContext = this.sharedAudio.getAudioContext();
     if (!audioContext) return;
 

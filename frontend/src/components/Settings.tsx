@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Settings as SettingsIcon, 
@@ -12,8 +12,6 @@ import {
   Timer,
   VolumeX,
   RefreshCw,
-  Network,
-  Shield,
   Database,
   HardDrive,
   Cpu,
@@ -27,7 +25,6 @@ import { Label } from './ui/label';
 import { Input } from './ui/input';
 import { Separator } from './ui/separator';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Checkbox } from './ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
@@ -36,7 +33,7 @@ import { AudioEnhancementService } from '../services/audioEnhancement';
 
 interface SettingsProps {
   isVisible: boolean;
-  audioEnhancementService?: AudioEnhancementService | null;
+  audioEnhancementService: AudioEnhancementService | null;
   onInitializeAudio?: () => Promise<void>;
 }
 

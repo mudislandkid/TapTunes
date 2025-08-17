@@ -118,7 +118,7 @@ export class SharedAudioContextService {
       currentNode = this.analyserNode;
 
       // Connect equalizer chain
-      equalizerNodes.forEach((eqNode, index) => {
+      equalizerNodes.forEach((eqNode) => {
         currentNode.connect(eqNode);
         currentNode = eqNode;
       });
