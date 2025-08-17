@@ -24,14 +24,14 @@ export interface AlbumArtResult {
 }
 
 export class MetadataService {
-  private readonly userAgent = 'Phoniebox-Modern/1.0 (https://github.com/user/phoniebox-modern)';
+  private readonly userAgent = 'TapTunes/1.0 (https://github.com/user/taptunes)';
   private readonly musicBrainzBaseUrl = 'https://musicbrainz.org/ws/2';
   private readonly coverArtBaseUrl = 'https://coverartarchive.org';
   private readonly lastFmApiKey = process.env.LASTFM_API_KEY; // Optional
   
   constructor() {
     // Ensure user agent is set for MusicBrainz API compliance
-    console.log('🎵 [METADATA] MetadataService initialized');
+    console.log('🎵 [TAPTUNES-METADATA] MetadataService initialized');
   }
 
   /**

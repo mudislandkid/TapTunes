@@ -71,7 +71,7 @@ export class DatabaseService {
 
   constructor() {
     const dbDir = path.join(process.cwd(), 'data');
-    this.dbPath = path.join(dbDir, 'phoniebox.db');
+    this.dbPath = path.join(dbDir, 'taptunes.db');
     this.initialize();
   }
 

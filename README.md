@@ -1,6 +1,8 @@
-# Phoniebox Modern
+# TapTunes 🎵
 
-A modern, cross-platform reimplementation of Phoniebox with RFID capabilities.
+**Tap a card, play your tunes!**
+
+A smart audio player designed for kids to independently choose their favorite music and audiobooks using RFID cards.
 
 ## Architecture
 
@@ -35,10 +37,21 @@ A modern, cross-platform reimplementation of Phoniebox with RFID capabilities.
 
 ## Features
 
-- [ ] Web-based audio player
-- [ ] RFID card management
-- [ ] Cross-platform compatibility
-- [ ] Modern React UI
-- [ ] RESTful API
-- [ ] Real-time WebSocket communication
-- [ ] Docker deployment
+- [x] **Real-time Audio Visualization** - See your music come alive with frequency analysis
+- [x] **YouTube Downloader** - Convert videos to audio with automatic metadata
+- [x] **Metadata Enrichment** - Automatic album art and song info from MusicBrainz
+- [x] **Smart Music Library** - Upload, organize, and search your collection
+- [x] **Dual Playback Modes** - Browser audio or hardware audio output
+- [x] **RFID Card Management** - Tap cards to instantly play favorites
+- [x] **Glassmorphism UI** - Beautiful, modern interface designed for kids
+- [x] **Cross-platform** - Works on Raspberry Pi, Windows, macOS, Linux
+- [x] **Progressive Web App** - Install on any device
+- [x] **File Upload** - Drag & drop music files with progress tracking
+
+## Perfect for Kids! 🎯
+
+- **Simple Operation**: Just tap an RFID card to play music
+- **Independence**: Kids can choose their own entertainment
+- **Safe**: No internet browsing required during playback
+- **Visual**: Colorful visualizer makes music interactive
+- **Educational**: Learn about music through visual feedback

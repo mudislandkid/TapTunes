@@ -22,5 +22,7 @@ app.use('/api/rfid', rfidRoutes);
 app.use('/api/media', mediaRoutes);
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🎵 TapTunes Server running on port ${PORT}`);
+  console.log(`🌐 Frontend: http://localhost:5173`);
+  console.log(`🔧 API: http://localhost:${PORT}/api`);
 });
