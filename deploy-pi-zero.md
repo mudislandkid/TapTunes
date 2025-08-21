@@ -11,14 +11,14 @@ If you want to completely remove Phoniebox:
 
 ```bash
 # SSH into your Pi
-ssh pi@your-pi-ip
+ssh your-username@your-pi-ip
 
 # Stop Phoniebox services
 sudo systemctl stop phoniebox
 sudo systemctl disable phoniebox
 
 # Remove Phoniebox files (adjust paths as needed)
-sudo rm -rf /home/pi/Phoniebox
+sudo rm -rf /home/your-username/Phoniebox
 sudo rm -rf /opt/phoniebox
 
 # Remove from systemd if it exists
@@ -62,33 +62,64 @@ npm --version
 python3 --version
 ```
 
-### Configure audio
+### Configure audio for WM8960 HAT
 ```bash
-# Add pi user to audio group
-sudo usermod -a -G audio pi
+# Add your user to audio group
+sudo usermod -a -G audio $USER
 
-# Configure ALSA
+# Enable I2S interface for WM8960
+sudo nano /boot/config.txt
+```
+
+Add these lines to `/boot/config.txt`:
+```
+# WM8960 Audio HAT Configuration
+dtoverlay=wm8960-soundcard
+dtparam=audio=on
+dtparam=i2s=on
+dtparam=i2c=on
+```
+
+Create ALSA configuration:
+```bash
 sudo nano /etc/asound.conf
 ```
 
 Add this content to `/etc/asound.conf`:
 ```
+# WM8960 Audio HAT Configuration
 pcm.!default {
     type hw
     card 0
+    device 0
 }
 
 ctl.!default {
     type hw
     card 0
 }
+
+# High-quality playback settings
+pcm.wm8960_hifi {
+    type hw
+    card 0
+    device 0
+    rate 44100
+    channels 2
+    format S16_LE
+}
+
+# Default device
+pcm.!default wm8960_hifi
 ```
+
+**Important**: After editing `/boot/config.txt`, reboot your Pi for the changes to take effect.
 
 ## Step 3: Deploy TapTunes
 
 ### Clone project
 ```bash
-cd /home/pi
+cd ~
 git clone https://github.com/your-username/TapTunes.git
 cd TapTunes
 ```
@@ -104,14 +135,14 @@ npm ci --only=production
 npm run build
 
 # Create data directories
-mkdir -p /home/pi/TapTunes/data
-mkdir -p /home/pi/TapTunes/audio
-mkdir -p /home/pi/TapTunes/uploads
+mkdir -p ~/TapTunes/data
+mkdir -p ~/TapTunes/audio
+mkdir -p ~/TapTunes/uploads
 
 # Set permissions
-chmod 755 /home/pi/TapTunes/data
-chmod 755 /home/pi/TapTunes/audio
-chmod 755 /home/pi/TapTunes/uploads
+chmod 755 ~/TapTunes/data
+chmod 755 ~/TapTunes/audio
+chmod 755 ~/TapTunes/uploads
 ```
 
 ### Frontend Setup
@@ -223,8 +254,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/TapTunes/backend
+User=your-username
+WorkingDirectory=~/TapTunes/backend
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
 RestartSec=10
@@ -248,12 +279,12 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/TapTunes/python-services
-ExecStart=/home/pi/TapTunes/python-services/venv/bin/python rfid_service.py
+User=your-username
+WorkingDirectory=~/TapTunes/python-services
+ExecStart=~/TapTunes/python-services/venv/bin/python rfid_service.py
 Restart=always
 RestartSec=10
-Environment=PYTHONPATH=/home/pi/TapTunes/python-services
+Environment=PYTHONPATH=~/TapTunes/python-services
 
 [Install]
 WantedBy=multi-user.target
@@ -364,6 +395,49 @@ free -h
 sudo systemctl restart taptunes-backend
 sudo systemctl restart taptunes-rfid
 sudo systemctl restart nginx
+```
+
+### WM8960 Audio HAT Troubleshooting
+
+#### Check hardware detection
+```bash
+# List audio devices
+aplay -l
+
+# Check I2C devices
+i2cdetect -y 1
+
+# Check kernel messages for WM8960
+dmesg | grep -i wm8960
+```
+
+#### Audio configuration issues
+```bash
+# Test audio playback
+aplay -D hw:0,0 -f S16_LE -r 44100 -c 2 /dev/zero
+
+# Check ALSA configuration
+cat /proc/asound/cards
+cat /proc/asound/devices
+
+# Test with different sample rates
+aplay -D hw:0,0 -f S16_LE -r 48000 -c 2 /dev/zero
+```
+
+#### Common WM8960 issues
+- **No sound**: Check volume levels with `amixer -c 0 scontrols`
+- **Distorted audio**: Verify sample rate compatibility (44.1kHz recommended)
+- **I2C errors**: Ensure proper wiring and power supply
+- **Driver not loaded**: Check `/boot/config.txt` and reboot
+
+#### Reset audio configuration
+```bash
+# Reset ALSA to defaults
+sudo alsactl restore
+
+# Restart audio services
+sudo systemctl restart pulseaudio
+sudo systemctl restart alsa-state
 ```
 
 ## Performance Notes for Pi Zero W

@@ -29,9 +29,16 @@ print_error() {
 
 # Check if running as root
 if [[ $EUID -eq 0 ]]; then
-   print_error "This script should not be run as root. Please run as pi user."
+   print_error "This script should not be run as root. Please run as a regular user."
    exit 1
 fi
+
+# Get current user and home directory
+CURRENT_USER=$(whoami)
+USER_HOME=$(eval echo ~$CURRENT_USER)
+
+print_status "Detected user: $CURRENT_USER"
+print_status "Home directory: $USER_HOME"
 
 # Check if we're in the TapTunes directory
 if [ ! -f "docker-compose.yml" ]; then
@@ -74,27 +81,58 @@ sudo apt install -y sqlite3 libsqlite3-dev
 # Nginx
 sudo apt install -y nginx
 
-# Step 3: Audio Configuration
-print_status "Configuring audio..."
-sudo usermod -a -G audio pi
+# Step 3: Audio Configuration for WM8960 HAT
+print_status "Configuring audio for WM8960 HAT..."
+sudo usermod -a -G audio $CURRENT_USER
 
-# Create ALSA configuration
+# Enable I2S interface for WM8960
+if ! grep -q "dtoverlay=wm8960-soundcard" /boot/config.txt; then
+    print_status "Enabling WM8960 HAT support..."
+    echo "" | sudo tee -a /boot/config.txt
+    echo "# WM8960 Audio HAT Configuration" | sudo tee -a /boot/config.txt
+    echo "dtoverlay=wm8960-soundcard" | sudo tee -a /boot/config.txt
+    echo "dtparam=audio=on" | sudo tee -a /boot/config.txt
+fi
+
+# Create optimized ALSA configuration for WM8960
 sudo tee /etc/asound.conf > /dev/null <<EOF
+# WM8960 Audio HAT Configuration
 pcm.!default {
     type hw
     card 0
+    device 0
 }
 
 ctl.!default {
     type hw
     card 0
 }
+
+# High-quality playback settings
+pcm.wm8960_hifi {
+    type hw
+    card 0
+    device 0
+    rate 44100
+    channels 2
+    format S16_LE
+}
+
+# Default device
+pcm.!default wm8960_hifi
 EOF
+
+# Install additional audio tools for WM8960
+print_status "Installing WM8960 audio tools..."
+sudo apt install -y alsa-tools alsa-utils
 
 # Step 4: Create Directories
 print_status "Creating data directories..."
 mkdir -p data audio uploads
 chmod 755 data audio uploads
+
+# Set ownership to current user
+chown -R $CURRENT_USER:$CURRENT_USER data audio uploads
 
 # Step 5: Backend Setup
 print_status "Setting up backend..."
@@ -126,6 +164,9 @@ npm run build
 print_status "Copying frontend to nginx..."
 sudo cp -r dist/* /var/www/html/
 sudo chown -R www-data:www-data /var/www/html/
+
+# Also set ownership for current user to allow updates
+sudo chown -R $CURRENT_USER:www-data /var/www/html/
 
 cd ..
 
@@ -214,7 +255,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
+User=$CURRENT_USER
 WorkingDirectory=$(pwd)/backend
 ExecStart=/usr/bin/node dist/index.js
 Restart=always
@@ -234,7 +275,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
+User=$CURRENT_USER
 WorkingDirectory=$(pwd)/python-services
 ExecStart=$(pwd)/python-services/venv/bin/python rfid_service.py
 Restart=always
@@ -277,6 +318,10 @@ if ! grep -q "arm_freq=1000" /boot/config.txt; then
     echo "over_voltage=2" | sudo tee -a /boot/config.txt
     echo "gpu_mem=16" | sudo tee -a /boot/config.txt
     echo "dtoverlay=vc4-fkms-v3d" | sudo tee -a /boot/config.txt
+    echo "" | sudo tee -a /boot/config.txt
+    echo "# Audio Performance Optimizations" | sudo tee -a /boot/config.txt
+    echo "dtparam=i2s=on" | sudo tee -a /boot/config.txt
+    echo "dtparam=i2c=on" | sudo tee -a /boot/config.txt
 fi
 
 # Create swap file if it doesn't exist
@@ -334,6 +379,21 @@ if curl -s http://localhost:3001/health > /dev/null 2>&1; then
     print_status "✅ Backend API is responding"
 else
     print_warning "⚠️  Backend API test failed (this might be normal if no health endpoint exists)"
+fi
+
+# Test audio configuration
+print_status "Testing audio configuration..."
+if aplay -l | grep -q "WM8960"; then
+    print_status "✅ WM8960 HAT detected"
+else
+    print_warning "⚠️  WM8960 HAT not detected - check hardware connection"
+fi
+
+# Test audio playback (silent test)
+if timeout 3 aplay -D hw:0,0 -f S16_LE -r 44100 -c 2 /dev/zero > /dev/null 2>&1; then
+    print_status "✅ Audio playback test passed"
+else
+    print_warning "⚠️  Audio playback test failed - check ALSA configuration"
 fi
 
 # Step 16: Summary

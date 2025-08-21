@@ -9,7 +9,7 @@
 
 1. **SSH into your Pi**
    ```bash
-   ssh pi@your-pi-ip
+   ssh your-username@your-pi-ip
    ```
 
 2. **Clone your TapTunes repository**
@@ -38,6 +38,7 @@ Follow the detailed guide in `deploy-pi-zero.md`
 - ✅ Python 3 + virtual environment
 - ✅ Nginx web server
 - ✅ Audio libraries (ALSA, PulseAudio)
+- ✅ WM8960 Audio HAT support (I2S, I2C)
 - ✅ SQLite database
 - ✅ Systemd services (auto-start)
 - ✅ Firewall configuration
@@ -62,7 +63,8 @@ Follow the detailed guide in `deploy-pi-zero.md`
 - Use Class 10+ SD card
 - Monitor memory usage (512MB limit)
 - Avoid heavy concurrent operations
-- Consider USB audio adapter for better audio quality
+- WM8960 HAT provides excellent audio quality (no USB adapter needed)
+- I2S interface is more efficient than USB audio
 
 ## Support
 
