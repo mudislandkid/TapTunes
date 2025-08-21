@@ -20,7 +20,8 @@ function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('player')
   const [isDarkMode, setIsDarkMode] = useState(true)
 
-  const API_BASE = 'http://localhost:3001/api'
+  // Use relative URL to work through nginx proxy
+  const API_BASE = '/api'
 
   // Audio player hook
   const {

@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { 
   pageVariants, 
   staggerContainer, 
@@ -41,6 +43,10 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   // Dialog states
   const [isCreateFolderDialogOpen, setIsCreateFolderDialogOpen] = useState(false)
   const [isCreatePlaylistDialogOpen, setIsCreatePlaylistDialogOpen] = useState(false)
+  const [isEditTrackDialogOpen, setIsEditTrackDialogOpen] = useState(false)
+  const [isAddToFolderDialogOpen, setIsAddToFolderDialogOpen] = useState(false)
+  const [isDeleteTrackDialogOpen, setIsDeleteTrackDialogOpen] = useState(false)
+  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
   const [dragOver, setDragOver] = useState(false)
   
   // Form states
@@ -51,6 +57,8 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
     isPublic: false,
     tags: ''
   })
+  const [editedTrack, setEditedTrack] = useState<Partial<Track>>({})
+  const [selectedFolderId, setSelectedFolderId] = useState<string>('')
 
   // Fetch library data from API
   const fetchLibraryData = async () => {
@@ -216,6 +224,112 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
       }
     } catch (error) {
       console.error('Error deleting playlist:', error)
+    }
+  }
+
+  // Track management functions
+  const handleEditTrack = (track: Track) => {
+    setSelectedTrack(track)
+    setEditedTrack({
+      title: track.title,
+      artist: track.artist,
+      album: track.album,
+      genre: track.genre,
+      year: track.year
+    })
+    setIsEditTrackDialogOpen(true)
+  }
+
+  const handleAddToFolder = (track: Track) => {
+    setSelectedTrack(track)
+    setSelectedFolderId('')
+    setIsAddToFolderDialogOpen(true)
+  }
+
+  const handleDeleteTrack = (track: Track) => {
+    setSelectedTrack(track)
+    setIsDeleteTrackDialogOpen(true)
+  }
+
+  const handleDownloadTrack = (track: Track) => {
+    // Create a download link
+    const link = document.createElement('a')
+    link.href = `${apiBase}/media/tracks/${track.id}/download`
+    link.download = `${track.artist} - ${track.title}.mp3`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const updateTrackMetadata = async () => {
+    if (!selectedTrack) return
+
+    try {
+      const response = await fetch(`${apiBase}/media/tracks/${selectedTrack.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editedTrack)
+      })
+
+      if (response.ok) {
+        setIsEditTrackDialogOpen(false)
+        setSelectedTrack(null)
+        setEditedTrack({})
+        fetchLibraryData() // Refresh data
+      } else {
+        console.error('Failed to update track')
+      }
+    } catch (error) {
+      console.error('Error updating track:', error)
+    }
+  }
+
+  const moveTrackToFolder = async () => {
+    if (!selectedTrack) return
+
+    try {
+      const response = await fetch(`${apiBase}/media/tracks/${selectedTrack.id}/move`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          folderId: selectedFolderId || null
+        })
+      })
+
+      if (response.ok) {
+        setIsAddToFolderDialogOpen(false)
+        setSelectedTrack(null)
+        setSelectedFolderId('')
+        fetchLibraryData() // Refresh data
+      } else {
+        console.error('Failed to move track')
+      }
+    } catch (error) {
+      console.error('Error moving track:', error)
+    }
+  }
+
+  const deleteTrack = async () => {
+    if (!selectedTrack) return
+
+    try {
+      const response = await fetch(`${apiBase}/media/tracks/${selectedTrack.id}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        setIsDeleteTrackDialogOpen(false)
+        setSelectedTrack(null)
+        fetchLibraryData() // Refresh data
+      } else {
+        console.error('Failed to delete track')
+      }
+    } catch (error) {
+      console.error('Error deleting track:', error)
     }
   }
 
@@ -515,6 +629,10 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                     tracks={filteredTracks}
                     onPlayTrack={handlePlayTrack}
                     formatDuration={formatDuration}
+                    onEditTrack={handleEditTrack}
+                    onAddToFolder={handleAddToFolder}
+                    onDeleteTrack={handleDeleteTrack}
+                    onDownloadTrack={handleDownloadTrack}
                   />
                 )
               )}
@@ -555,6 +673,163 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
           </AnimatePresence>
         )}
       </motion.div>
+
+      {/* Track Management Dialogs */}
+      
+      {/* Edit Track Dialog */}
+      <Dialog open={isEditTrackDialogOpen} onOpenChange={setIsEditTrackDialogOpen}>
+        <DialogContent className="glass-card border-slate-700/50">
+          <DialogHeader>
+            <DialogTitle className="text-slate-100">Edit Track</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="editTitle">Title</Label>
+              <Input
+                id="editTitle"
+                value={editedTrack.title || ''}
+                onChange={(e) => setEditedTrack(prev => ({ ...prev, title: e.target.value }))}
+                placeholder="Track title..."
+                className="glass-card border-slate-600/50"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editArtist">Artist</Label>
+              <Input
+                id="editArtist"
+                value={editedTrack.artist || ''}
+                onChange={(e) => setEditedTrack(prev => ({ ...prev, artist: e.target.value }))}
+                placeholder="Artist name..."
+                className="glass-card border-slate-600/50"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editAlbum">Album</Label>
+              <Input
+                id="editAlbum"
+                value={editedTrack.album || ''}
+                onChange={(e) => setEditedTrack(prev => ({ ...prev, album: e.target.value }))}
+                placeholder="Album name..."
+                className="glass-card border-slate-600/50"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editGenre">Genre</Label>
+              <Input
+                id="editGenre"
+                value={editedTrack.genre || ''}
+                onChange={(e) => setEditedTrack(prev => ({ ...prev, genre: e.target.value }))}
+                placeholder="Genre..."
+                className="glass-card border-slate-600/50"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editYear">Year</Label>
+              <Input
+                id="editYear"
+                type="number"
+                value={editedTrack.year || ''}
+                onChange={(e) => setEditedTrack(prev => ({ ...prev, year: parseInt(e.target.value) || undefined }))}
+                placeholder="Release year..."
+                className="glass-card border-slate-600/50"
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditTrackDialogOpen(false)
+                  setSelectedTrack(null)
+                  setEditedTrack({})
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={updateTrackMetadata}
+                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              >
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add to Folder Dialog */}
+      <Dialog open={isAddToFolderDialogOpen} onOpenChange={setIsAddToFolderDialogOpen}>
+        <DialogContent className="glass-card border-slate-700/50">
+          <DialogHeader>
+            <DialogTitle className="text-slate-100">Add to Folder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="selectFolder">Select Folder</Label>
+              <Select value={selectedFolderId} onValueChange={setSelectedFolderId}>
+                <SelectTrigger className="glass-card border-slate-600/50">
+                  <SelectValue placeholder="Choose a folder..." />
+                </SelectTrigger>
+                <SelectContent className="glass-card border-slate-700/50 bg-slate-800/95">
+                  <SelectItem value="">No folder (root)</SelectItem>
+                  {folders.map((folder) => (
+                    <SelectItem key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAddToFolderDialogOpen(false)
+                  setSelectedTrack(null)
+                  setSelectedFolderId('')
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={moveTrackToFolder}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+              >
+                Move Track
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Track Dialog */}
+      <AlertDialog open={isDeleteTrackDialogOpen} onOpenChange={setIsDeleteTrackDialogOpen}>
+        <AlertDialogContent className="glass-card border-slate-700/50 bg-slate-800/95">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Delete Track</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-300">
+              Are you sure you want to delete "{selectedTrack?.title}" by {selectedTrack?.artist}? 
+              This action cannot be undone and will permanently remove the file.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setIsDeleteTrackDialogOpen(false)
+                setSelectedTrack(null)
+              }}
+              className="glass-card border-slate-600/50"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteTrack}
+              className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
+            >
+              Delete Track
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   )
 })

@@ -1,9 +1,16 @@
 import { memo } from 'react'
 import { motion } from 'framer-motion'
-import { Music, Heart, Play, MoreHorizontal } from 'lucide-react'
+import { Music, Heart, Play, MoreHorizontal, Edit, FolderPlus, Trash2, Download } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import type { Track } from '../../types/media'
 import {
   staggerContainer,
@@ -15,12 +22,20 @@ interface TrackListViewProps {
   tracks: Track[]
   onPlayTrack: (track: Track) => void
   formatDuration: (seconds: number) => string
+  onEditTrack?: (track: Track) => void
+  onAddToFolder?: (track: Track) => void
+  onDeleteTrack?: (track: Track) => void
+  onDownloadTrack?: (track: Track) => void
 }
 
 export const TrackListView = memo(function TrackListView({
   tracks,
   onPlayTrack,
-  formatDuration
+  formatDuration,
+  onEditTrack,
+  onAddToFolder,
+  onDeleteTrack,
+  onDownloadTrack
 }: TrackListViewProps) {
   return (
     <motion.div 
@@ -100,14 +115,75 @@ export const TrackListView = memo(function TrackListView({
                     </Button>
                   </motion.div>
                   
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 hover:bg-slate-600/40"
-                    title="More options"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 hover:bg-slate-600/40"
+                        title="More options"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MoreHorizontal className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      className="glass-card border-slate-700/50 bg-slate-800/95 backdrop-blur-xl" 
+                      align="end"
+                    >
+                      {onEditTrack && (
+                        <DropdownMenuItem 
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onEditTrack(track);
+                          }}
+                          className="text-slate-200 hover:bg-slate-700/50 focus:bg-slate-700/50"
+                        >
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit Track
+                        </DropdownMenuItem>
+                      )}
+                      {onAddToFolder && (
+                        <DropdownMenuItem 
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onAddToFolder(track);
+                          }}
+                          className="text-slate-200 hover:bg-slate-700/50 focus:bg-slate-700/50"
+                        >
+                          <FolderPlus className="w-4 h-4 mr-2" />
+                          Add to Folder
+                        </DropdownMenuItem>
+                      )}
+                      {onDownloadTrack && (
+                        <DropdownMenuItem 
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onDownloadTrack(track);
+                          }}
+                          className="text-slate-200 hover:bg-slate-700/50 focus:bg-slate-700/50"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download
+                        </DropdownMenuItem>
+                      )}
+                      {(onEditTrack || onAddToFolder || onDownloadTrack) && onDeleteTrack && (
+                        <DropdownMenuSeparator className="bg-slate-600/50" />
+                      )}
+                      {onDeleteTrack && (
+                        <DropdownMenuItem 
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onDeleteTrack(track);
+                          }}
+                          className="text-red-400 hover:bg-red-900/20 focus:bg-red-900/20"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete Track
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </motion.div>
               </div>
             </GlassCard>
