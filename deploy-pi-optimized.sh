@@ -211,22 +211,29 @@ fi
 
 # Install dependencies with Pi Zero W optimizations
 print_status "Installing backend dependencies (this may take a while on Pi Zero W)..."
-print_status "Using --omit=dev --omit=optional for Pi Zero W compatibility"
+print_status "Installing both production and dev dependencies for build process..."
 
-# Install with minimal dependencies for Pi Zero W
-if npm install --omit=dev --omit=optional --legacy-peer-deps --no-audit --no-fund --progress=false; then
+# Install with dev dependencies for building (but skip optional)
+if npm install --omit=optional --legacy-peer-deps --no-audit --no-fund --progress=false; then
     print_status "✅ Backend dependencies installed successfully"
 else
     print_error "❌ Backend dependency installation failed"
     print_status "Trying alternative installation method..."
     
     # Try with even more minimal approach
-    if npm install --omit=dev --omit=optional --legacy-peer-deps --no-audit --no-fund --no-optional --progress=false; then
+    if npm install --omit=optional --legacy-peer-deps --no-audit --no-fund --progress=false; then
         print_status "✅ Backend dependencies installed with minimal approach"
     else
         print_error "❌ All backend installation methods failed"
         exit 1
     fi
+fi
+
+# Verify TypeScript is available
+print_status "Verifying TypeScript availability..."
+if ! command -v tsc &> /dev/null && ! [ -f "./node_modules/.bin/tsc" ]; then
+    print_error "❌ TypeScript not found. Installing TypeScript..."
+    npm install typescript --save-dev
 fi
 
 # Build TypeScript
@@ -235,7 +242,18 @@ if npm run build; then
     print_status "✅ Backend built successfully"
 else
     print_error "❌ Backend build failed"
-    exit 1
+    print_status "Trying to install TypeScript and build again..."
+    
+    # Install TypeScript if not already installed
+    npm install typescript --save-dev
+    
+    # Try building again
+    if npm run build; then
+        print_status "✅ Backend built successfully after TypeScript installation"
+    else
+        print_error "❌ Backend build still failed"
+        exit 1
+    fi
 fi
 
 cd ..
@@ -252,16 +270,16 @@ fi
 
 # Install dependencies with Pi Zero W optimizations
 print_status "Installing frontend dependencies (this may take a while on Pi Zero W)..."
-print_status "Using --omit=optional for Pi Zero W compatibility"
+print_status "Installing both production and dev dependencies for build process..."
 
-# Install with minimal dependencies for Pi Zero W
+# Install with dev dependencies for building (but skip optional)
 if npm install --omit=optional --legacy-peer-deps --no-audit --no-fund --progress=false; then
     print_status "✅ Frontend dependencies installed successfully"
 else
     print_status "Trying alternative installation method..."
     
     # Try with even more minimal approach
-    if npm install --omit=optional --legacy-peer-deps --no-audit --no-fund --no-optional --progress=false; then
+    if npm install --omit=optional --legacy-peer-deps --no-audit --no-fund --progress=false; then
         print_status "✅ Frontend dependencies installed with minimal approach"
     else
         print_error "❌ All frontend installation methods failed"
