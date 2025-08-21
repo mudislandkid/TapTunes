@@ -37,8 +37,23 @@ fi
 CURRENT_USER=$(whoami)
 USER_HOME=$(eval echo ~$CURRENT_USER)
 
+# Detect system architecture
+ARCH=$(uname -m)
+OS_INFO=$(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)
+
 print_status "Detected user: $CURRENT_USER"
 print_status "Home directory: $USER_HOME"
+print_status "Architecture: $ARCH"
+print_status "OS: $OS_INFO"
+
+# Check if this is a Pi Zero W
+if [[ $ARCH == "armv6l" ]]; then
+    print_status "🎯 Raspberry Pi Zero W detected - applying optimizations"
+elif [[ $ARCH == "armv7l" ]]; then
+    print_status "🎯 Raspberry Pi 2/3 detected"
+elif [[ $ARCH == "aarch64" ]]; then
+    print_status "🎯 Raspberry Pi 4/5 detected"
+fi
 
 # Check if we're in the TapTunes directory
 if [ ! -f "docker-compose.yml" ]; then
@@ -59,13 +74,53 @@ print_status "Installing required packages..."
 # Essential packages
 sudo apt install -y git curl wget build-essential
 
-# Node.js 18.x
+# Node.js 18.x (ARM optimized)
 if ! command -v node &> /dev/null; then
-    print_status "Installing Node.js 18.x..."
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-    sudo apt install -y nodejs
+    print_status "Installing Node.js 18.x for ARM..."
+    
+    # Check if we're on ARM architecture
+    if [[ $(uname -m) == "armv6l" ]]; then
+        print_status "Pi Zero W detected - installing Node.js 18.x from NodeSource"
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt install -y nodejs
+    elif [[ $(uname -m) == "armv7l" || $(uname -m) == "aarch64" ]]; then
+        print_status "ARM architecture detected - installing Node.js 18.x from NodeSource"
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt install -y nodejs
+    else
+        print_status "Installing Node.js 18.x..."
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt install -y nodejs
+    fi
 else
     print_status "Node.js already installed: $(node --version)"
+fi
+
+# Verify Node.js installation
+if ! command -v node &> /dev/null; then
+    print_error "Node.js installation failed. Trying alternative method..."
+    # Fallback to package manager version
+    sudo apt install -y nodejs npm
+fi
+
+# Configure npm for ARM devices
+if [[ $(uname -m) == "armv6l" || $(uname -m) == "armv7l" || $(uname -m) == "aarch64" ]]; then
+    print_status "Configuring npm for ARM architecture..."
+    
+    # Set npm cache directory to avoid permission issues
+    npm config set cache ~/.npm-cache
+    
+    # Increase network timeout for slower connections
+    npm config set fetch-timeout 300000
+    
+    # Use legacy peer deps for better ARM compatibility
+    npm config set legacy-peer-deps true
+    
+    # Clear npm cache if it exists
+    if [ -d ~/.npm-cache ]; then
+        print_status "Clearing npm cache..."
+        npm cache clean --force
+    fi
 fi
 
 # Python and pip
@@ -138,13 +193,44 @@ chown -R $CURRENT_USER:$CURRENT_USER data audio uploads
 print_status "Setting up backend..."
 cd backend
 
-# Install dependencies
+# Install dependencies with architecture-specific handling
 print_status "Installing backend dependencies..."
-npm ci --only=production
+if [[ $(uname -m) == "armv6l" || $(uname -m) == "armv7l" || $(uname -m) == "aarch64" ]]; then
+    print_status "Detected ARM architecture - using npm install for compatibility"
+    
+    # Clean any existing node_modules to avoid conflicts
+    if [ -d "node_modules" ]; then
+        print_status "Cleaning existing node_modules..."
+        rm -rf node_modules
+    fi
+    
+    # Install with error handling
+    if npm install --only=production --no-optional; then
+        print_status "✅ Backend dependencies installed successfully"
+    else
+        print_error "❌ Backend dependency installation failed"
+        print_status "Trying alternative installation method..."
+        
+        # Try with legacy peer deps
+        if npm install --only=production --no-optional --legacy-peer-deps; then
+            print_status "✅ Backend dependencies installed with legacy peer deps"
+        else
+            print_error "❌ All backend installation methods failed"
+            exit 1
+        fi
+    fi
+else
+    npm ci --only=production
+fi
 
 # Build TypeScript
 print_status "Building backend..."
-npm run build
+if npm run build; then
+    print_status "✅ Backend built successfully"
+else
+    print_error "❌ Backend build failed"
+    exit 1
+fi
 
 cd ..
 
@@ -152,13 +238,43 @@ cd ..
 print_status "Setting up frontend..."
 cd frontend
 
-# Install dependencies
+# Install dependencies with architecture-specific handling
 print_status "Installing frontend dependencies..."
-npm ci
+if [[ $(uname -m) == "armv6l" || $(uname -m) == "armv7l" || $(uname -m) == "aarch64" ]]; then
+    print_status "Detected ARM architecture - using npm install for compatibility"
+    
+    # Clean any existing node_modules to avoid conflicts
+    if [ -d "node_modules" ]; then
+        print_status "Cleaning existing frontend node_modules..."
+        rm -rf node_modules
+    fi
+    
+    # Install with error handling
+    if npm install --no-optional; then
+        print_status "✅ Frontend dependencies installed successfully"
+    else
+        print_status "Trying alternative installation method..."
+        
+        # Try with legacy peer deps
+        if npm install --no-optional --legacy-peer-deps; then
+            print_status "✅ Frontend dependencies installed with legacy peer deps"
+        else
+            print_error "❌ All frontend installation methods failed"
+            exit 1
+        fi
+    fi
+else
+    npm ci
+fi
 
 # Build for production
 print_status "Building frontend..."
-npm run build
+if npm run build; then
+    print_status "✅ Frontend built successfully"
+else
+    print_error "❌ Frontend build failed"
+    exit 1
+fi
 
 # Copy to nginx directory
 print_status "Copying frontend to nginx..."
