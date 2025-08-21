@@ -61,7 +61,19 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
+# Check for --no-cache flag
+CLEAR_CACHE=false
+for arg in "$@"; do
+    if [[ "$arg" == "--no-cache" ]]; then
+        CLEAR_CACHE=true
+        break
+    fi
+done
+
 print_status "Starting TapTunes deployment..."
+if [[ "$CLEAR_CACHE" == "true" ]]; then
+    print_status "Cache clearing enabled (--no-cache flag detected)"
+fi
 
 # Step 1: System Update (minimal)
 print_status "Updating system packages..."
@@ -74,12 +86,28 @@ print_status "Installing required packages..."
 # Essential packages only
 sudo apt install -y git curl wget build-essential
 
-# Node.js - use package manager version for Pi Zero W compatibility
+# Node.js - install Node.js 20.x for Pi Zero W compatibility
 if ! command -v node &> /dev/null; then
-    print_status "Installing Node.js from package manager (ARM compatible)..."
-    sudo apt install -y nodejs npm
+    print_status "Installing Node.js 20.x for Pi Zero W compatibility..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt install -y nodejs
 else
-    print_status "Node.js already installed: $(node --version)"
+    NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+    if [[ $NODE_VERSION -lt 20 ]]; then
+        print_warning "Node.js $(node --version) detected, but packages require Node.js 20+"
+        print_status "Upgrading to Node.js 20.x..."
+        
+        # Remove old Node.js
+        sudo apt remove --purge -y nodejs npm
+        sudo apt autoremove -y
+        sudo rm -rf /etc/apt/sources.list.d/nodesource.list*
+        
+        # Install Node.js 20
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        sudo apt install -y nodejs
+    else
+        print_status "Node.js $(node --version) is compatible"
+    fi
 fi
 
 # Python and pip
@@ -98,7 +126,7 @@ sudo apt install -y nginx
 # Step 3: Verify and Fix Node.js Installation
 print_status "Verifying Node.js installation..."
 
-# Check if Node.js is working properly
+# Check if Node.js is working properly and has correct version
 if ! node --version > /dev/null 2>&1; then
     print_error "Node.js binary is corrupted or incompatible"
     print_status "Removing corrupted Node.js installation..."
@@ -106,9 +134,20 @@ if ! node --version > /dev/null 2>&1; then
     sudo apt autoremove -y
     sudo rm -rf /etc/apt/sources.list.d/nodesource.list*
     
-    print_status "Installing Node.js from package manager (ARM compatible)..."
-    sudo apt update -qq
-    sudo apt install -y nodejs npm
+    print_status "Installing Node.js 20.x for Pi Zero W compatibility..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+    sudo apt install -y nodejs
+else
+    # Check if we need to upgrade to Node.js 20
+    NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+    if [[ $NODE_VERSION -lt 20 ]]; then
+        print_warning "Node.js $(node --version) detected, upgrading to 20.x for compatibility..."
+        sudo apt remove --purge -y nodejs npm
+        sudo apt autoremove -y
+        sudo rm -rf /etc/apt/sources.list.d/nodesource.list*
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        sudo apt install -y nodejs
+    fi
 fi
 
 # Check if npm is working properly
@@ -203,10 +242,12 @@ chown -R $CURRENT_USER:$CURRENT_USER data audio uploads
 print_status "Setting up backend..."
 cd backend
 
-# Clean any existing node_modules to avoid conflicts
-if [ -d "node_modules" ]; then
-    print_status "Cleaning existing node_modules..."
+# Clean any existing node_modules only if --no-cache flag is used
+if [[ "$CLEAR_CACHE" == "true" ]] && [ -d "node_modules" ]; then
+    print_status "Clearing node_modules (--no-cache flag detected)..."
     rm -rf node_modules
+elif [ -d "node_modules" ]; then
+    print_status "Keeping existing node_modules (use --no-cache to clear)"
 fi
 
 # Install dependencies with Pi Zero W optimizations
@@ -262,25 +303,27 @@ cd ..
 print_status "Setting up frontend..."
 cd frontend
 
-# Clean any existing node_modules to avoid conflicts
-if [ -d "node_modules" ]; then
-    print_status "Cleaning existing frontend node_modules..."
+# Clean any existing node_modules only if --no-cache flag is used
+if [[ "$CLEAR_CACHE" == "true" ]] && [ -d "node_modules" ]; then
+    print_status "Clearing frontend node_modules (--no-cache flag detected)..."
     rm -rf node_modules
+elif [ -d "node_modules" ]; then
+    print_status "Keeping existing frontend node_modules (use --no-cache to clear)"
 fi
 
 # Install dependencies with Pi Zero W optimizations
 print_status "Installing frontend dependencies (this may take a while on Pi Zero W)..."
 print_status "Installing both production and dev dependencies for build process..."
 
-# Install with dev dependencies for building (but skip optional)
-if npm install --omit=optional --legacy-peer-deps --no-audit --no-fund --progress=false; then
+# Install with dev dependencies for building (include optional for esbuild compatibility)
+if npm install --legacy-peer-deps --no-audit --no-fund --progress=false; then
     print_status "✅ Frontend dependencies installed successfully"
 else
     print_status "Trying alternative installation method..."
     
-    # Try with even more minimal approach
-    if npm install --omit=optional --legacy-peer-deps --no-audit --no-fund --progress=false; then
-        print_status "✅ Frontend dependencies installed with minimal approach"
+    # Try with legacy peer deps
+    if npm install --legacy-peer-deps --no-audit --no-fund --progress=false; then
+        print_status "✅ Frontend dependencies installed with legacy peer deps"
     else
         print_error "❌ All frontend installation methods failed"
         exit 1
