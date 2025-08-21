@@ -15,7 +15,7 @@ export default function VolumeControl({ volume, onVolumeChange, className }: Vol
   const [showSlider, setShowSlider] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [previousVolume, setPreviousVolume] = useState(volume)
-  const [sliderTimeout, setSliderTimeout] = useState<NodeJS.Timeout | null>(null)
+  const [sliderTimeout, setSliderTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
 
   const getVolumeIcon = () => {
     if (isMuted || volume === 0) return VolumeX

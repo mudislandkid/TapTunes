@@ -132,6 +132,7 @@ export class AudioEnhancementService {
   private sharedAudio: SharedAudioContextService;
   private equalizerNodes: BiquadFilterNode[] = [];
   private currentAudioElement: HTMLAudioElement | null = null;
+  private nextAudioElement: HTMLAudioElement | null = null;
   private settings: AudioEnhancementSettings;
 
   constructor() {
@@ -309,6 +310,19 @@ export class AudioEnhancementService {
     nextTrackElement.load();
     
     console.log('🎵 [AUDIO-ENHANCEMENT] Next track prepared for gapless playback');
+  }
+
+  switchToNextTrack(): void {
+    if (!this.nextAudioElement) return;
+    
+    // Switch current to next
+    this.currentAudioElement = this.nextAudioElement;
+    this.nextAudioElement = null;
+    
+    // Re-initialize with the new audio element
+    if (this.currentAudioElement) {
+      this.setupAudioGraph();
+    }
   }
 
   getSettings(): AudioEnhancementSettings {

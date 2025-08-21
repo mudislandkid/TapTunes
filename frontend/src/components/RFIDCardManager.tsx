@@ -10,8 +10,7 @@ import {
   Volume2, 
   Volume1,
   Search,
-  Filter,
-  MoreVertical
+  Filter
 } from 'lucide-react'
 import { 
   pageVariants, 
@@ -31,7 +30,6 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface RFIDCard {
   id: string;
@@ -74,7 +72,6 @@ export default function RFIDCardManager({ apiBase }: RFIDCardManagerProps) {
   const [filteredCards, setFilteredCards] = useState<RFIDCard[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filterAction, setFilterAction] = useState<string>('all')
-  const [isScanning, setIsScanning] = useState(false)
   const [editingCard, setEditingCard] = useState<RFIDCard | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newCard, setNewCard] = useState({
@@ -133,16 +130,6 @@ export default function RFIDCardManager({ apiBase }: RFIDCardManagerProps) {
     } catch (error) {
       console.error('Failed to delete RFID card:', error)
     }
-  }
-
-  const startScanning = async () => {
-    setIsScanning(true)
-    // Simulate scanning process
-    setTimeout(() => {
-      const mockCardId = `card_${Date.now()}`
-      saveCard(newCard, mockCardId)
-      setIsScanning(false)
-    }, 3000)
   }
 
   useEffect(() => {

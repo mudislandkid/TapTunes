@@ -176,7 +176,7 @@ export const bounce: AnimationVariants = {
 
 // Spring animation config
 export const springConfig = {
-  type: "spring",
+  type: "spring" as const,
   stiffness: 260,
   damping: 20
 }
