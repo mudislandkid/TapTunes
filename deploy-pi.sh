@@ -74,15 +74,15 @@ print_status "Installing required packages..."
 # Essential packages
 sudo apt install -y git curl wget build-essential
 
-# Node.js 18.x (ARM optimized)
+# Node.js installation (ARM optimized)
 if ! command -v node &> /dev/null; then
-    print_status "Installing Node.js 18.x for ARM..."
+    print_status "Installing Node.js for ARM..."
     
     # Check if we're on ARM architecture
     if [[ $(uname -m) == "armv6l" ]]; then
-        print_status "Pi Zero W detected - installing Node.js 18.x from NodeSource"
-        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-        sudo apt install -y nodejs
+        print_status "Pi Zero W detected - using package manager version for compatibility"
+        # Pi Zero W (ARM11) works better with package manager version
+        sudo apt install -y nodejs npm
     elif [[ $(uname -m) == "armv7l" || $(uname -m) == "aarch64" ]]; then
         print_status "ARM architecture detected - installing Node.js 18.x from NodeSource"
         curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
@@ -96,30 +96,79 @@ else
     print_status "Node.js already installed: $(node --version)"
 fi
 
-# Verify Node.js installation
-if ! command -v node &> /dev/null; then
-    print_error "Node.js installation failed. Trying alternative method..."
-    # Fallback to package manager version
+# Verify Node.js installation and fix if needed
+print_status "Verifying Node.js installation..."
+
+# Check if Node.js is working properly
+if ! node --version > /dev/null 2>&1; then
+    print_error "Node.js binary is corrupted or incompatible"
+    print_status "Removing corrupted Node.js installation..."
+    sudo apt remove --purge -y nodejs npm
+    sudo apt autoremove -y
+    sudo rm -rf /etc/apt/sources.list.d/nodesource.list*
+    
+    print_status "Installing Node.js from package manager (ARM compatible)..."
+    sudo apt update
     sudo apt install -y nodejs npm
 fi
 
-# Configure npm for ARM devices
-if [[ $(uname -m) == "armv6l" || $(uname -m) == "armv7l" || $(uname -m) == "aarch64" ]]; then
+# Check if npm is working properly
+if ! npm --version > /dev/null 2>&1; then
+    print_error "npm binary is corrupted or incompatible"
+    print_status "Reinstalling npm..."
+    sudo apt install --reinstall -y npm
+fi
+
+# Final verification of Node.js and npm
+print_status "Final verification of Node.js installation..."
+if node --version > /dev/null 2>&1 && npm --version > /dev/null 2>&1; then
+    print_status "✅ Node.js $(node --version) and npm $(npm --version) are working"
+else
+    print_error "❌ Node.js or npm still not working after reinstallation"
+    print_status "Trying alternative Node.js installation method..."
+    
+    # Remove all Node.js related packages and try again
+    sudo apt remove --purge -y nodejs npm node
+    sudo apt autoremove -y
+    sudo rm -rf /etc/apt/sources.list.d/nodesource.list*
+    sudo rm -rf ~/.npm ~/.npm-cache
+    
+    # Install from package manager
+    sudo apt update
+    sudo apt install -y nodejs npm
+    
+    # Final check
+    if node --version > /dev/null 2>&1 && npm --version > /dev/null 2>&1; then
+        print_status "✅ Node.js installation successful after cleanup"
+    else
+        print_error "❌ Node.js installation failed completely"
+        print_error "Please check your system and try manual installation"
+        exit 1
+    fi
+fi
+
+# Configure npm for ARM devices (only if npm is working)
+if command -v npm &> /dev/null && [[ $(uname -m) == "armv6l" || $(uname -m) == "armv7l" || $(uname -m) == "aarch64" ]]; then
     print_status "Configuring npm for ARM architecture..."
     
-    # Set npm cache directory to avoid permission issues
-    npm config set cache ~/.npm-cache
-    
-    # Increase network timeout for slower connections
-    npm config set fetch-timeout 300000
-    
-    # Use legacy peer deps for better ARM compatibility
-    npm config set legacy-peer-deps true
-    
-    # Clear npm cache if it exists
-    if [ -d ~/.npm-cache ]; then
-        print_status "Clearing npm cache..."
-        npm cache clean --force
+    # Test npm functionality before configuring
+    if npm --version > /dev/null 2>&1; then
+        # Set npm cache directory to avoid permission issues
+        npm config set cache ~/.npm-cache || print_warning "Could not set npm cache directory"
+        
+        # Increase network timeout for slower connections
+        npm config set fetch-timeout 300000 || print_warning "Could not set npm timeout"
+        
+        # Use legacy peer deps for better ARM compatibility
+        npm config set legacy-peer-deps true || print_warning "Could not set legacy peer deps"
+        
+        # Clear npm cache if it exists
+        if [ -d ~/.npm-cache ]; then
+            print_status "Clearing npm cache..."
+            npm cache clean --force || print_warning "Could not clear npm cache"
+        fi
+    else
+        print_warning "npm is not working properly, skipping configuration"
     fi
 fi
 
