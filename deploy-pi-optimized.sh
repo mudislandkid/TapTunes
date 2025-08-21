@@ -525,7 +525,8 @@ PI_IP=$(hostname -I | awk '{print $1}')
 if [ -n "$PI_IP" ]; then
     print_status "Updating frontend API URL to use Pi IP: $PI_IP"
     cd /var/www/html
-    sudo sed -i "s|http://localhost:3001|http://$PI_IP:3001|g" *.js
+    # Find and update all JavaScript files (they're in the assets directory after Vite build)
+    sudo find . -name "*.js" -type f -exec sed -i "s|http://localhost:3001|http://$PI_IP:3001|g" {} \;
     cd - > /dev/null
 fi
 
