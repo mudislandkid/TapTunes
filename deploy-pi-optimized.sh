@@ -2,6 +2,12 @@
 
 # TapTunes Optimized Deployment Script for Raspberry Pi Zero W
 # This version is specifically optimized for the limited resources of Pi Zero W
+#
+# Usage:
+#   ./deploy-pi-optimized.sh                  # Normal installation
+#   ./deploy-pi-optimized.sh --no-cache       # Clear npm cache during install
+#   ./deploy-pi-optimized.sh --force-clean    # Remove all previous installation files
+#   ./deploy-pi-optimized.sh --force-clean --no-cache  # Complete clean reinstall
 
 set -e  # Exit on any error
 
@@ -61,12 +67,15 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
-# Check for --no-cache flag
+# Check for flags
 CLEAR_CACHE=false
+FORCE_CLEAN=false
 for arg in "$@"; do
     if [[ "$arg" == "--no-cache" ]]; then
         CLEAR_CACHE=true
-        break
+    fi
+    if [[ "$arg" == "--force-clean" ]]; then
+        FORCE_CLEAN=true
     fi
 done
 
@@ -74,6 +83,87 @@ print_status "Starting TapTunes deployment..."
 if [[ "$CLEAR_CACHE" == "true" ]]; then
     print_status "Cache clearing enabled (--no-cache flag detected)"
 fi
+if [[ "$FORCE_CLEAN" == "true" ]]; then
+    print_status "Force clean installation enabled (--force-clean flag detected)"
+fi
+
+# Step 0: Cleanup Previous Installation
+print_status "Cleaning up any previous TapTunes installation..."
+
+# Stop and disable existing services
+if sudo systemctl list-units --full --all | grep -q "taptunes-backend.service"; then
+    print_status "Stopping existing backend service..."
+    sudo systemctl stop taptunes-backend 2>/dev/null || true
+    sudo systemctl disable taptunes-backend 2>/dev/null || true
+fi
+
+if sudo systemctl list-units --full --all | grep -q "taptunes-rfid.service"; then
+    print_status "Stopping existing RFID service..."
+    sudo systemctl stop taptunes-rfid 2>/dev/null || true
+    sudo systemctl disable taptunes-rfid 2>/dev/null || true
+fi
+
+# Kill any orphaned Node.js processes running on port 3001
+print_status "Checking for processes on port 3001..."
+if command -v lsof &>/dev/null; then
+    if sudo lsof -i :3001 &>/dev/null; then
+        print_status "Killing processes on port 3001..."
+        sudo lsof -ti :3001 | xargs -r sudo kill -9 2>/dev/null || true
+    fi
+elif command -v ss &>/dev/null; then
+    # Alternative using ss if lsof is not available
+    PIDS=$(sudo ss -lptn 'sport = :3001' 2>/dev/null | grep -oP 'pid=\K[0-9]+' || true)
+    if [ -n "$PIDS" ]; then
+        print_status "Killing processes on port 3001..."
+        echo "$PIDS" | xargs -r sudo kill -9 2>/dev/null || true
+    fi
+fi
+
+# Kill any orphaned Node.js processes from TapTunes
+print_status "Cleaning up orphaned Node.js processes..."
+sudo pkill -f "taptunes" 2>/dev/null || true
+sudo pkill -f "node.*dist/index.js" 2>/dev/null || true
+sudo pkill -f "node.*rfid" 2>/dev/null || true
+
+# Remove existing systemd service files
+if [ -f "/etc/systemd/system/taptunes-backend.service" ]; then
+    print_status "Removing existing backend service file..."
+    sudo rm -f /etc/systemd/system/taptunes-backend.service
+fi
+
+if [ -f "/etc/systemd/system/taptunes-rfid.service" ]; then
+    print_status "Removing existing RFID service file..."
+    sudo rm -f /etc/systemd/system/taptunes-rfid.service
+fi
+
+# Reload systemd to forget about removed services
+sudo systemctl daemon-reload
+
+# Clean up nginx configuration if exists
+if [ -f "/etc/nginx/sites-enabled/taptunes" ]; then
+    print_status "Removing existing nginx configuration..."
+    sudo rm -f /etc/nginx/sites-enabled/taptunes
+    sudo rm -f /etc/nginx/sites-available/taptunes
+    sudo nginx -t 2>/dev/null && sudo systemctl reload nginx || true
+fi
+
+# Clean up web directory if force clean
+if [[ "$FORCE_CLEAN" == "true" ]]; then
+    if [ -d "/var/www/html" ]; then
+        print_status "Cleaning web directory (force clean)..."
+        sudo rm -rf /var/www/html/*
+    fi
+fi
+
+# Clean up node_modules if force clean
+if [[ "$FORCE_CLEAN" == "true" ]]; then
+    print_status "Removing node_modules directories (force clean)..."
+    rm -rf backend/node_modules frontend/node_modules 2>/dev/null || true
+    rm -rf backend/dist frontend/dist 2>/dev/null || true
+    rm -f backend/package-lock.json frontend/package-lock.json 2>/dev/null || true
+fi
+
+print_status "Cleanup completed"
 
 # Step 1: System Update (minimal)
 print_status "Updating system packages..."
@@ -84,7 +174,7 @@ sudo apt upgrade -y -qq
 print_status "Installing required packages..."
 
 # Essential packages only
-sudo apt install -y git curl wget build-essential
+sudo apt install -y git curl wget build-essential lsof
 
 # Node.js - install Node.js 20.x for Pi Zero W compatibility
 if ! command -v node &> /dev/null; then
@@ -439,6 +529,7 @@ Restart=always
 RestartSec=10
 Environment=NODE_ENV=production
 Environment=PORT=3001
+Environment=HOST=0.0.0.0
 
 [Install]
 WantedBy=multi-user.target

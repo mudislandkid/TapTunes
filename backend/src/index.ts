@@ -25,8 +25,10 @@ app.use('/api/media', mediaRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/settings', settingsRoutes);
 
-app.listen(PORT, () => {
-  console.log(`🎵 TapTunes Server running on port ${PORT}`);
+const HOST = process.env.HOST || '0.0.0.0';
+
+app.listen(PORT, HOST, () => {
+  console.log(`🎵 TapTunes Server running on ${HOST}:${PORT}`);
   console.log(`🌐 Frontend: http://localhost:5173`);
   console.log(`🔧 API: http://localhost:${PORT}/api`);
 });
