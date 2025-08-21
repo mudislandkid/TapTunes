@@ -41,13 +41,24 @@ export class MetadataService {
     try {
       console.log(`🔍 [METADATA] Looking up: "${title}" by "${artist}"`);
       
-      // Build search query
-      let query = `artist:"${artist}" AND recording:"${title}"`;
-      if (album) {
-        query += ` AND release:"${album}"`;
+      // Build search query - if artist is unknown/empty, search by title only
+      let query: string;
+      const isUnknownArtist = !artist || artist.toLowerCase() === 'unknown artist' || artist.trim() === '';
+      
+      if (isUnknownArtist) {
+        console.log(`🔍 [METADATA] Artist unknown, searching by title only: "${title}"`);
+        query = `recording:"${title}"`;
+        if (album && album.toLowerCase() !== 'unknown album') {
+          query += ` AND release:"${album}"`;
+        }
+      } else {
+        query = `artist:"${artist}" AND recording:"${title}"`;
+        if (album) {
+          query += ` AND release:"${album}"`;
+        }
       }
 
-      const searchUrl = `${this.musicBrainzBaseUrl}/recording?query=${encodeURIComponent(query)}&fmt=json&limit=5`;
+      const searchUrl = `${this.musicBrainzBaseUrl}/recording?query=${encodeURIComponent(query)}&fmt=json&limit=10`;
       
       const response = await this.makeRequest(searchUrl);
       const data = await response.json();
@@ -59,7 +70,10 @@ export class MetadataService {
 
       const results: MetadataLookupResult[] = [];
       
-      for (const recording of data.recordings.slice(0, 3)) {
+      // Return more results when searching by title only to give user options
+      const maxResults = isUnknownArtist ? 8 : 3;
+      
+      for (const recording of data.recordings.slice(0, maxResults)) {
         try {
           const result = await this.parseRecordingData(recording);
           if (result) {
@@ -213,6 +227,24 @@ export class MetadataService {
     } catch (error) {
       console.error(`❌ [METADATA] Enrichment failed:`, error);
       return null;
+    }
+  }
+
+  /**
+   * Get multiple metadata suggestions for user selection
+   */
+  async getMetadataSuggestions(
+    artist: string, 
+    title: string, 
+    album?: string
+  ): Promise<MetadataLookupResult[]> {
+    try {
+      const results = await this.lookupTrackMetadata(artist, title, album);
+      console.log(`✅ [METADATA] Found ${results.length} suggestions for user selection`);
+      return results;
+    } catch (error) {
+      console.error(`❌ [METADATA] Failed to get suggestions:`, error);
+      return [];
     }
   }
 

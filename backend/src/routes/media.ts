@@ -400,13 +400,13 @@ router.post('/search-metadata', async (req, res) => {
   try {
     const { artist, title, album } = req.body;
     
-    if (!artist || !title) {
-      return res.status(400).json({ error: 'Artist and title are required' });
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
     }
 
-    console.log(`🔍 [METADATA] Searching metadata for: "${title}" by "${artist}"`);
+    console.log(`🔍 [METADATA] Searching metadata for: "${title}" by "${artist || 'Unknown Artist'}"`);
 
-    const results = await metadataService.lookupTrackMetadata(artist, title, album);
+    const results = await metadataService.lookupTrackMetadata(artist || '', title, album);
 
     res.json({
       success: true,
@@ -423,12 +423,71 @@ router.post('/search-metadata', async (req, res) => {
   }
 });
 
-// Batch enrich all tracks missing metadata
+// Apply selected metadata to a track
+router.post('/apply-metadata/:trackId', async (req, res) => {
+  try {
+    const { trackId } = req.params;
+    const { title, artist, album, year, genre, musicBrainzId } = req.body;
+    
+    console.log(`🎵 [METADATA] Applying metadata to track: ${trackId}`);
+    
+    // Get current track
+    const track = await mediaService.getTrackById(trackId);
+    if (!track) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+
+    // Update track with selected metadata
+    const updates: any = {};
+    if (title) updates.title = title;
+    if (artist) updates.artist = artist;
+    if (album) updates.album = album;
+    if (year) updates.year = year;
+    if (genre) updates.genre = genre;
+
+    // Try to get album art if we have a MusicBrainz ID
+    if (musicBrainzId) {
+      try {
+        const albumArt = await metadataService.getAlbumArt(musicBrainzId);
+        if (albumArt.length > 0) {
+          const localPath = await metadataService.downloadAlbumArt(albumArt[0].url, trackId);
+          if (localPath) {
+            updates.thumbnailPath = localPath;
+          }
+        }
+      } catch (error) {
+        console.warn(`⚠️ [METADATA] Failed to download album art:`, error);
+      }
+    }
+
+    const success = await mediaService.updateTrack(trackId, updates);
+    
+    if (success) {
+      const updatedTrack = await mediaService.getTrackById(trackId);
+      res.json({
+        success: true,
+        message: 'Metadata applied successfully',
+        track: updatedTrack
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to update track' });
+    }
+
+  } catch (error) {
+    console.error(`❌ [METADATA] Failed to apply metadata:`, error);
+    res.status(500).json({ 
+      error: 'Failed to apply metadata',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get tracks that need metadata enrichment
 router.post('/enrich-all', async (req, res) => {
   try {
-    const { limit = 10, skipExisting = true } = req.body;
+    const { limit = 20, skipExisting = true } = req.body;
     
-    console.log(`🎵 [METADATA] Starting batch metadata enrichment (limit: ${limit})`);
+    console.log(`🎵 [METADATA] Finding tracks that need metadata enrichment (limit: ${limit})`);
     
     // Get tracks that need metadata
     const tracks = await mediaService.getTracks({ limit: 100 }); // Get more to filter
@@ -436,7 +495,8 @@ router.post('/enrich-all', async (req, res) => {
     
     const tracksToEnrich = tracks.filter(track => {
       // Skip tracks that don't have basic info to search with
-      if (!track.title || track.artist === 'Unknown Artist') {
+      // We need at least a title to search for metadata
+      if (!track.title || track.title.trim() === '') {
         return false;
       }
       
@@ -444,16 +504,20 @@ router.post('/enrich-all', async (req, res) => {
       if (skipExisting) {
         // Consider a track as having good metadata if:
         // 1. It has album art AND a proper album name (not generic ones)
-        // 2. OR it has a high confidence MusicBrainz match (we'd need to track this)
+        // 2. AND it has a proper artist name (not generic ones)
         const hasGoodAlbum = track.album && 
           track.album !== 'Unknown Album' && 
           track.album !== 'YouTube Downloads' &&
           track.album !== 'Downloaded';
           
+        const hasGoodArtist = track.artist && 
+          track.artist !== 'Unknown Artist' &&
+          track.artist.trim() !== '';
+          
         const hasAlbumArt = track.thumbnailPath;
         
-        // Only skip if it has BOTH good album info AND album art
-        if (hasGoodAlbum && hasAlbumArt) {
+        // Only skip if it has good album info, good artist info, AND album art
+        if (hasGoodAlbum && hasGoodArtist && hasAlbumArt) {
           return false;
         }
       }
@@ -468,61 +532,23 @@ router.post('/enrich-all', async (req, res) => {
       return res.json({
         success: true,
         message: 'No tracks need metadata enrichment',
-        processed: 0,
-        results: []
+        tracksToEnrich: []
       });
     }
 
-    const results = [];
-    let processed = 0;
-
-    for (const track of tracksToEnrich) {
-      try {
-        console.log(`🎵 [METADATA] Processing ${processed + 1}/${tracksToEnrich.length}: ${track.title}`);
-        
-        const enrichedData = await metadataService.enrichTrackMetadata(
-          track.artist,
-          track.title,
-          track.album !== 'Unknown Album' ? track.album : undefined,
-          track.id
-        );
-
-        results.push({
-          trackId: track.id,
-          title: track.title,
-          artist: track.artist,
-          success: !!enrichedData,
-          confidence: enrichedData?.confidence || 0,
-          enhanced: !!enrichedData
-        });
-
-        processed++;
-        
-        // Add delay between requests to be respectful to APIs
-        if (processed < tracksToEnrich.length) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-
-      } catch (error) {
-        console.error(`❌ [METADATA] Failed to process track ${track.id}:`, error);
-        results.push({
-          trackId: track.id,
-          title: track.title,
-          artist: track.artist,
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        processed++;
-      }
-    }
-
-    console.log(`✅ [METADATA] Batch enrichment completed: ${processed} tracks processed`);
-
+    // Return the tracks that need enrichment for user interaction
     res.json({
       success: true,
-      message: `Processed ${processed} tracks`,
-      processed,
-      results
+      message: `Found ${tracksToEnrich.length} tracks that need metadata enrichment`,
+      tracksToEnrich: tracksToEnrich.map(track => ({
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        year: track.year,
+        genre: track.genre,
+        thumbnailPath: track.thumbnailPath
+      }))
     });
 
   } catch (error) {
@@ -566,6 +592,83 @@ router.get('/tracks/:id', async (req, res) => {
   } catch (error) {
     console.error('Error fetching track:', error);
     res.status(500).json({ error: 'Failed to fetch track' });
+  }
+});
+
+// Update track metadata
+router.put('/tracks/:id', async (req, res) => {
+  try {
+    const { title, artist, album, genre, year } = req.body;
+    
+    console.log('🎵 [UPDATE] Updating track:', req.params.id);
+    console.log('🎵 [UPDATE] Request body:', req.body);
+    console.log('🎵 [UPDATE] Title received:', JSON.stringify(title));
+    
+    const success = await mediaService.updateTrack(req.params.id, {
+      title,
+      artist,
+      album,
+      genre,
+      year
+    });
+    
+    if (!success) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    const updatedTrack = await mediaService.getTrackById(req.params.id);
+    console.log('🎵 [UPDATE] Updated track:', updatedTrack?.title);
+    res.json({ message: 'Track updated successfully', track: updatedTrack });
+  } catch (error) {
+    console.error('Error updating track:', error);
+    res.status(500).json({ error: 'Failed to update track' });
+  }
+});
+
+// Move track to folder
+router.put('/tracks/:id/move', async (req, res) => {
+  try {
+    const { folderId } = req.body;
+    
+    const success = await mediaService.moveTrackToFolder(req.params.id, folderId);
+    
+    if (!success) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+    
+    res.json({ message: 'Track moved successfully' });
+  } catch (error) {
+    console.error('Error moving track:', error);
+    res.status(500).json({ error: 'Failed to move track' });
+  }
+});
+
+// Download track
+router.get('/tracks/:id/download', async (req, res) => {
+  try {
+    const track = await mediaService.getTrackById(req.params.id);
+    if (!track) {
+      return res.status(404).json({ error: 'Track not found' });
+    }
+
+    // Check if file exists
+    try {
+      await fs.access(track.filePath);
+    } catch {
+      return res.status(404).json({ error: 'Audio file not found on disk' });
+    }
+
+    // Set download headers
+    res.setHeader('Content-Type', track.mimeType || 'audio/mpeg');
+    res.setHeader('Content-Disposition', `attachment; filename="${track.artist} - ${track.title}.mp3"`);
+    
+    // Stream the file for download
+    const readStream = require('fs').createReadStream(track.filePath);
+    readStream.pipe(res);
+
+  } catch (error) {
+    console.error('Error downloading track:', error);
+    res.status(500).json({ error: 'Failed to download track' });
   }
 });
 

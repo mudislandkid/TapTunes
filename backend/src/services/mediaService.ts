@@ -194,6 +194,28 @@ export class MediaService {
     return dbTrack ? this.convertDbTrack(dbTrack) : null;
   }
 
+  async updateTrack(id: string, updates: Partial<Track>): Promise<boolean> {
+    const track = await this.getTrackById(id);
+    if (!track) return false;
+
+    // Prepare database updates
+    const dbUpdates: any = {};
+    if (updates.title !== undefined) dbUpdates.title = updates.title;
+    if (updates.artist !== undefined) dbUpdates.artist = updates.artist;
+    if (updates.album !== undefined) dbUpdates.album = updates.album;
+    if (updates.genre !== undefined) dbUpdates.genre = updates.genre;
+    if (updates.year !== undefined) dbUpdates.year = updates.year;
+
+    return await this.db.updateTrack(id, dbUpdates);
+  }
+
+  async moveTrackToFolder(id: string, folderId: string | null): Promise<boolean> {
+    const track = await this.getTrackById(id);
+    if (!track) return false;
+
+    return await this.db.updateTrack(id, { folder_id: folderId });
+  }
+
   async deleteTrack(id: string): Promise<boolean> {
     const track = await this.getTrackById(id);
     if (!track) return false;

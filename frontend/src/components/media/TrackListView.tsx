@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { motion } from 'framer-motion'
-import { Music, Heart, Play, MoreHorizontal, Edit, FolderPlus, Trash2, Download } from 'lucide-react'
+import { Music, Heart, Play, MoreHorizontal, Edit, FolderPlus, Trash2, Download, Sparkles } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -26,6 +26,7 @@ interface TrackListViewProps {
   onAddToFolder?: (track: Track) => void
   onDeleteTrack?: (track: Track) => void
   onDownloadTrack?: (track: Track) => void
+  onEnhanceMetadata?: (track: Track) => void
 }
 
 export const TrackListView = memo(function TrackListView({
@@ -35,7 +36,8 @@ export const TrackListView = memo(function TrackListView({
   onEditTrack,
   onAddToFolder,
   onDeleteTrack,
-  onDownloadTrack
+  onDownloadTrack,
+  onEnhanceMetadata
 }: TrackListViewProps) {
   return (
     <motion.div 
@@ -64,7 +66,7 @@ export const TrackListView = memo(function TrackListView({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
                     <h3 className="font-semibold text-slate-100 truncate">{track.title}</h3>
-                    {track.isLiked && (
+                    {Boolean(track.isLiked) && (
                       <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
@@ -131,6 +133,18 @@ export const TrackListView = memo(function TrackListView({
                       className="glass-card border-slate-700/50 bg-slate-800/95 backdrop-blur-xl" 
                       align="end"
                     >
+                      {onEnhanceMetadata && (
+                        <DropdownMenuItem 
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onEnhanceMetadata(track);
+                          }}
+                          className="text-slate-200 hover:bg-slate-700/50 focus:bg-slate-700/50"
+                        >
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Enhance Metadata
+                        </DropdownMenuItem>
+                      )}
                       {onEditTrack && (
                         <DropdownMenuItem 
                           onClick={(e: React.MouseEvent) => {

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { BatchMetadataDialog } from './BatchMetadataDialog'
 import type { UploadProgress } from '../../types/media'
 
 interface MediaUploadProps {
@@ -27,8 +28,7 @@ export const MediaUpload = memo(function MediaUpload({
   const [youtubeUrl, setYoutubeUrl] = useState('')
   const [isDownloading, setIsDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState('')
-  const [isEnrichingMetadata, setIsEnrichingMetadata] = useState(false)
-  const [enrichmentProgress, setEnrichmentProgress] = useState('')
+  const [isBatchMetadataDialogOpen, setIsBatchMetadataDialogOpen] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -160,40 +160,8 @@ export const MediaUpload = memo(function MediaUpload({
     }
   }
 
-  const handleBatchEnrichMetadata = async () => {
-    setIsEnrichingMetadata(true)
-    setEnrichmentProgress('Starting metadata enrichment...')
-
-    try {
-      const response = await fetch(`${apiBase}/media/enrich-metadata`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (response.ok) {
-        setEnrichmentProgress('Metadata enrichment completed successfully!')
-        setTimeout(() => {
-          setIsEnrichingMetadata(false)
-          setEnrichmentProgress('')
-          onRefreshLibrary()
-        }, 2000)
-      } else {
-        setEnrichmentProgress('Metadata enrichment failed')
-        setTimeout(() => {
-          setIsEnrichingMetadata(false)
-          setEnrichmentProgress('')
-        }, 3000)
-      }
-    } catch (error) {
-      console.error('Batch metadata enrichment error:', error)
-      setEnrichmentProgress('Metadata enrichment failed')
-      setTimeout(() => {
-        setIsEnrichingMetadata(false)
-        setEnrichmentProgress('')
-      }, 3000)
-    }
+  const handleOpenBatchEnrichment = () => {
+    setIsBatchMetadataDialogOpen(true)
   }
 
   return (
@@ -286,32 +254,13 @@ export const MediaUpload = memo(function MediaUpload({
         <Button
           variant="outline"
           className="glass-card border-slate-600/50"
-          onClick={handleBatchEnrichMetadata}
-          disabled={isEnrichingMetadata}
+          onClick={handleOpenBatchEnrichment}
         >
-          {isEnrichingMetadata ? (
-            <>
-              <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-              Enriching...
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4 mr-2" />
-              Enrich Metadata
-            </>
-          )}
+          <Sparkles className="w-4 h-4 mr-2" />
+          Enhance Metadata
         </Button>
       </div>
 
-      {isEnrichingMetadata && enrichmentProgress && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mt-4 p-3 glass-card border-slate-600/50 rounded-lg"
-        >
-          <p className="text-sm text-slate-300">{enrichmentProgress}</p>
-        </motion.div>
-      )}
 
       {/* Hidden file input */}
       <input
@@ -368,6 +317,14 @@ export const MediaUpload = memo(function MediaUpload({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Batch Metadata Enhancement Dialog */}
+      <BatchMetadataDialog
+        open={isBatchMetadataDialogOpen}
+        onOpenChange={setIsBatchMetadataDialogOpen}
+        apiBase={apiBase}
+        onRefreshLibrary={onRefreshLibrary}
+      />
     </>
   )
 })

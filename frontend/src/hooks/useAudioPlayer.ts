@@ -31,6 +31,7 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
 
   // Audio element for browser playback
   const audioRef = useRef<HTMLAudioElement>(null)
+  const isManuallyUpdatingSource = useRef(false)
 
   const fetchPlaybackState = async () => {
     try {
@@ -94,8 +95,14 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
       if (mode === 'browser' && audioRef.current && playbackState.currentTrack) {
         const streamUrl = `${apiBase}/media/stream/${playbackState.currentTrack.id}`
         console.log(`🌐 [FRONTEND] Loading audio source: ${streamUrl}`)
+        isManuallyUpdatingSource.current = true
         audioRef.current.src = streamUrl
         audioRef.current.load()
+        
+        // Reset the flag after a short delay
+        setTimeout(() => {
+          isManuallyUpdatingSource.current = false
+        }, 500)
       }
       
       fetchPlaybackState()
@@ -262,11 +269,72 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trackId: track.id })
       })
+      
+      // If in browser mode, update the audio element source and start playing
+      if (playbackMode === 'browser' && audioRef.current) {
+        const streamUrl = `${apiBase}/media/stream/${track.id}`
+        console.log(`🌐 [FRONTEND] Loading new track for playback: ${streamUrl}`)
+        isManuallyUpdatingSource.current = true
+        audioRef.current.src = streamUrl
+        audioRef.current.load()
+        
+        // Reset the flag after a short delay
+        setTimeout(() => {
+          isManuallyUpdatingSource.current = false
+        }, 500)
+        
+        // Initialize audio enhancement if needed
+        if (!audioEnhancementService) {
+          await initializeAudioEnhancement()
+        }
+        
+        // Wait for the audio to be ready before trying to play
+        const attemptPlay = async () => {
+          setBrowserControlledState(true)
+          const playPromise = audioRef.current?.play()
+          if (playPromise !== undefined) {
+            playPromise.then(async () => {
+              console.log(`✅ [FRONTEND] New track started playing successfully`)
+              setNeedsUserInteraction(false)
+              
+              if (audioEnhancementService) {
+                try {
+                  await audioEnhancementService.fadeIn()
+                } catch (error) {
+                  console.warn('Fade-in failed:', error)
+                }
+              }
+            }).catch(async (error) => {
+              console.warn('🎵 [FRONTEND] Autoplay prevented for new track, user interaction required:', error)
+              setNeedsUserInteraction(true)
+              setBrowserControlledState(null)
+            })
+          }
+        }
+        
+        // Try to play immediately, or wait for canplay event
+        if (audioRef.current.readyState >= 3) { // HAVE_FUTURE_DATA
+          attemptPlay()
+        } else {
+          const onCanPlay = () => {
+            audioRef.current?.removeEventListener('canplay', onCanPlay)
+            attemptPlay()
+          }
+          audioRef.current.addEventListener('canplay', onCanPlay)
+          
+          // Fallback timeout in case canplay never fires
+          setTimeout(() => {
+            audioRef.current?.removeEventListener('canplay', onCanPlay)
+            attemptPlay()
+          }, 2000)
+        }
+      }
+      
       fetchPlaybackState()
     } catch (error) {
       console.error('Failed to play track:', error)
     }
-  }, [apiBase])
+  }, [apiBase, playbackMode, audioEnhancementService, initializeAudioEnhancement])
 
   const handlePlayPlaylist = useCallback(async (tracks: Track[]) => {
     try {
@@ -275,11 +343,73 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tracks })
       })
+      
+      // If in browser mode and we have tracks, load the first track
+      if (playbackMode === 'browser' && audioRef.current && tracks.length > 0) {
+        const firstTrack = tracks[0]
+        const streamUrl = `${apiBase}/media/stream/${firstTrack.id}`
+        console.log(`🌐 [FRONTEND] Loading first track of playlist: ${streamUrl}`)
+        isManuallyUpdatingSource.current = true
+        audioRef.current.src = streamUrl
+        audioRef.current.load()
+        
+        // Reset the flag after a short delay
+        setTimeout(() => {
+          isManuallyUpdatingSource.current = false
+        }, 500)
+        
+        // Initialize audio enhancement if needed
+        if (!audioEnhancementService) {
+          await initializeAudioEnhancement()
+        }
+        
+        // Wait for the audio to be ready before trying to play
+        const attemptPlay = async () => {
+          setBrowserControlledState(true)
+          const playPromise = audioRef.current?.play()
+          if (playPromise !== undefined) {
+            playPromise.then(async () => {
+              console.log(`✅ [FRONTEND] Playlist started playing successfully`)
+              setNeedsUserInteraction(false)
+              
+              if (audioEnhancementService) {
+                try {
+                  await audioEnhancementService.fadeIn()
+                } catch (error) {
+                  console.warn('Fade-in failed:', error)
+                }
+              }
+            }).catch(async (error) => {
+              console.warn('🎵 [FRONTEND] Autoplay prevented for playlist, user interaction required:', error)
+              setNeedsUserInteraction(true)
+              setBrowserControlledState(null)
+            })
+          }
+        }
+        
+        // Try to play immediately, or wait for canplay event
+        if (audioRef.current.readyState >= 3) { // HAVE_FUTURE_DATA
+          attemptPlay()
+        } else {
+          const onCanPlay = () => {
+            audioRef.current?.removeEventListener('canplay', onCanPlay)
+            attemptPlay()
+          }
+          audioRef.current.addEventListener('canplay', onCanPlay)
+          
+          // Fallback timeout in case canplay never fires
+          setTimeout(() => {
+            audioRef.current?.removeEventListener('canplay', onCanPlay)
+            attemptPlay()
+          }, 2000)
+        }
+      }
+      
       fetchPlaybackState()
     } catch (error) {
       console.error('Failed to play playlist:', error)
     }
-  }, [apiBase])
+  }, [apiBase, playbackMode, audioEnhancementService, initializeAudioEnhancement])
 
   const handleQuickPlayTrack = useCallback(async (track: Track) => {
     try {
@@ -300,6 +430,57 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
       audioRef.current.volume = volume / 100
     }
   }, [volume])
+
+  // Update audio source when current track changes in browser mode
+  useEffect(() => {
+    // Skip if we're already manually updating the source
+    if (isManuallyUpdatingSource.current) {
+      console.log('🌐 [FRONTEND] Skipping auto-update - manual update in progress')
+      return
+    }
+    
+    // Skip if browser is controlling the state (to prevent conflicts during user actions)
+    if (browserControlledState === true) {
+      console.log('🌐 [FRONTEND] Skipping auto-update - browser controlled state')
+      return
+    }
+    
+    if (playbackMode === 'browser' && audioRef.current && playbackState.currentTrack) {
+      const currentSrc = audioRef.current.src
+      const expectedSrc = `${apiBase}/media/stream/${playbackState.currentTrack.id}`
+      
+      // Only update if the source has actually changed and we have a valid track ID
+      if (currentSrc !== expectedSrc && playbackState.currentTrack.id) {
+        console.log(`🌐 [FRONTEND] Auto-updating audio source for track change: ${expectedSrc}`)
+        
+        // Set the flag to prevent re-entrance
+        isManuallyUpdatingSource.current = true
+        audioRef.current.src = expectedSrc
+        audioRef.current.load()
+        
+        // Reset the flag after a longer delay
+        setTimeout(() => {
+          isManuallyUpdatingSource.current = false
+        }, 1000)
+        
+        // If the track is supposed to be playing, start playback
+        if (playbackState.isPlaying) {
+          setBrowserControlledState(true)
+          const playPromise = audioRef.current.play()
+          if (playPromise !== undefined) {
+            playPromise.then(() => {
+              console.log(`✅ [FRONTEND] Auto-resumed playback after track change`)
+              setNeedsUserInteraction(false)
+            }).catch((error) => {
+              console.warn('🎵 [FRONTEND] Auto-resume failed after track change:', error)
+              setNeedsUserInteraction(true)
+              setBrowserControlledState(null)
+            })
+          }
+        }
+      }
+    }
+  }, [playbackState.currentTrack?.id, playbackMode, apiBase])
 
   // Periodic state sync
   useEffect(() => {

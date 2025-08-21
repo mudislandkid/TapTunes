@@ -363,6 +363,57 @@ export class DatabaseService {
     return await this.getQuery('SELECT * FROM tracks WHERE id = ?', [id]);
   }
 
+  async updateTrack(id: string, updates: Partial<DatabaseTrack>): Promise<boolean> {
+    const track = await this.getTrackById(id);
+    if (!track) return false;
+
+    console.log('🗄️ [DB] Original track title:', JSON.stringify(track.title));
+    console.log('🗄️ [DB] Updates received:', updates);
+
+    const updateFields = [];
+    const updateValues = [];
+
+    // Build dynamic update query
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        console.log(`🗄️ [DB] Adding update: ${key} = ${JSON.stringify(value)}`);
+        updateFields.push(`${key} = ?`);
+        updateValues.push(value);
+      }
+    }
+
+    if (updateFields.length === 0) return true; // No updates needed
+
+    // Add updated_at timestamp
+    updateFields.push('updated_at = ?');
+    updateValues.push(new Date().toISOString());
+    updateValues.push(id); // Add id for WHERE clause
+
+    const sql = `UPDATE tracks SET ${updateFields.join(', ')} WHERE id = ?`;
+    console.log('🗄️ [DB] SQL:', sql);
+    console.log('🗄️ [DB] Values:', updateValues);
+    
+    await this.runQuery(sql, updateValues);
+
+    // Verify the update
+    const updatedTrack = await this.getTrackById(id);
+    console.log('🗄️ [DB] After update, title is:', JSON.stringify(updatedTrack?.title));
+
+    // Update folder track counts if folder changed
+    if (updates.folder_id !== undefined && updates.folder_id !== track.folder_id) {
+      // Update old folder count
+      if (track.folder_id) {
+        await this.updateFolderTrackCount(track.folder_id);
+      }
+      // Update new folder count
+      if (updates.folder_id) {
+        await this.updateFolderTrackCount(updates.folder_id);
+      }
+    }
+
+    return true;
+  }
+
   async deleteTrack(id: string): Promise<boolean> {
     const track = await this.getTrackById(id);
     if (!track) return false;

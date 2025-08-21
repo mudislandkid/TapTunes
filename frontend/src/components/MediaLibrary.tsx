@@ -22,6 +22,7 @@ import { MediaUpload } from './media/MediaUpload'
 import { TrackListView } from './media/TrackListView'
 import { FolderView } from './media/FolderView'
 import { PlaylistView } from './media/PlaylistView'
+import { MetadataSelectionDialog } from './media/MetadataSelectionDialog'
 
 // Import types
 import type { Track, Folder, Playlist, MediaLibraryProps } from '../types/media'
@@ -46,6 +47,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   const [isEditTrackDialogOpen, setIsEditTrackDialogOpen] = useState(false)
   const [isAddToFolderDialogOpen, setIsAddToFolderDialogOpen] = useState(false)
   const [isDeleteTrackDialogOpen, setIsDeleteTrackDialogOpen] = useState(false)
+  const [isMetadataDialogOpen, setIsMetadataDialogOpen] = useState(false)
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
   const [dragOver, setDragOver] = useState(false)
   
@@ -261,10 +263,16 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
     document.body.removeChild(link)
   }
 
+  const handleEnhanceMetadata = (track: Track) => {
+    setSelectedTrack(track)
+    setIsMetadataDialogOpen(true)
+  }
+
   const updateTrackMetadata = async () => {
     if (!selectedTrack) return
 
     try {
+      console.log('Updating track with data:', editedTrack)
       const response = await fetch(`${apiBase}/media/tracks/${selectedTrack.id}`, {
         method: 'PUT',
         headers: {
@@ -274,12 +282,15 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
       })
 
       if (response.ok) {
+        const result = await response.json()
+        console.log('Update result:', result)
         setIsEditTrackDialogOpen(false)
         setSelectedTrack(null)
         setEditedTrack({})
         fetchLibraryData() // Refresh data
       } else {
-        console.error('Failed to update track')
+        const errorText = await response.text()
+        console.error('Failed to update track:', response.status, errorText)
       }
     } catch (error) {
       console.error('Error updating track:', error)
@@ -629,6 +640,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                     tracks={filteredTracks}
                     onPlayTrack={handlePlayTrack}
                     formatDuration={formatDuration}
+                    onEnhanceMetadata={handleEnhanceMetadata}
                     onEditTrack={handleEditTrack}
                     onAddToFolder={handleAddToFolder}
                     onDeleteTrack={handleDeleteTrack}
@@ -830,6 +842,15 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Metadata Selection Dialog */}
+      <MetadataSelectionDialog
+        open={isMetadataDialogOpen}
+        onOpenChange={setIsMetadataDialogOpen}
+        track={selectedTrack}
+        apiBase={apiBase}
+        onMetadataApplied={fetchLibraryData}
+      />
     </motion.div>
   )
 })
