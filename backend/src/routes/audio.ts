@@ -241,9 +241,22 @@ router.post('/play', (req, res) => {
     currentTime = 0; // Reset time for new track
   }
 
-  // Start hardware playback if in hardware mode and we have a current track
+  // Start/resume hardware playback if in hardware mode and we have a current track
   if (playbackMode === 'hardware' && currentPlaylist?.tracks[currentTrackIndex]) {
-    startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+    if (hardwareProcess) {
+      // Resume paused process
+      try {
+        console.log(`▶️ [AUDIO] Resuming paused hardware playback`);
+        hardwareProcess.kill('SIGCONT'); // Resume process
+      } catch (error) {
+        console.error('Error resuming hardware playback:', error);
+        // If resume fails, start fresh
+        startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+      }
+    } else {
+      // Start new playback
+      startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+    }
   }
 
   res.json({ status: 'playing', trackIndex: currentTrackIndex, playbackMode });
