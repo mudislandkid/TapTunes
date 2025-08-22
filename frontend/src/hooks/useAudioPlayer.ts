@@ -84,6 +84,16 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
   const handlePlaybackModeChange = async (mode: PlaybackMode) => {
     try {
       console.log(`🎵 [FRONTEND] Switching to ${mode} mode`)
+      
+      // Stop and clear browser audio when switching to hardware mode
+      if (mode === 'hardware' && audioRef.current) {
+        console.log(`🛑 [FRONTEND] Stopping browser audio for hardware mode`)
+        audioRef.current.pause()
+        audioRef.current.src = ''
+        audioRef.current.load()
+        setBrowserControlledState(null)
+      }
+      
       await fetch(`${apiBase}/audio/playback-mode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -270,7 +280,7 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
         body: JSON.stringify({ trackId: track.id })
       })
       
-      // If in browser mode, update the audio element source and start playing
+      // Only update browser audio element in browser mode
       if (playbackMode === 'browser' && audioRef.current) {
         const streamUrl = `${apiBase}/media/stream/${track.id}`
         console.log(`🌐 [FRONTEND] Loading new track for playback: ${streamUrl}`)

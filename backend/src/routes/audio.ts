@@ -326,6 +326,15 @@ router.post('/seek', (req, res) => {
 // Hardware playback function
 async function startHardwarePlayback(filePath: string): Promise<void> {
   try {
+    // Debug the file path
+    console.log(`🔍 [AUDIO] Raw filePath received:`, JSON.stringify(filePath));
+    console.log(`🔍 [AUDIO] FilePath length: ${filePath.length}`);
+    console.log(`🔍 [AUDIO] FilePath contains newline: ${filePath.includes('\n')}`);
+    
+    // Clean the file path of any whitespace/newlines
+    const cleanFilePath = filePath.trim();
+    console.log(`🔍 [AUDIO] Cleaned filePath:`, JSON.stringify(cleanFilePath));
+    
     // Stop existing hardware playback
     if (hardwareProcess) {
       hardwareProcess.kill();
@@ -340,17 +349,17 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
       // Check if mpg123 is available (good for Raspberry Pi)
       try {
         await execAsync('which mpg123');
-        command = `mpg123 "${filePath}"`;
+        command = `mpg123 "${cleanFilePath}"`;
       } catch {
         try {
           // Fallback to aplay for WAV files or ffplay
           await execAsync('which ffplay');
-          command = `ffplay -nodisp -autoexit "${filePath}"`;
+          command = `ffplay -nodisp -autoexit "${cleanFilePath}"`;
         } catch {
           try {
             // Fallback to paplay (PulseAudio)
             await execAsync('which paplay');
-            command = `paplay "${filePath}"`;
+            command = `paplay "${cleanFilePath}"`;
           } catch {
             throw new Error('No suitable audio player found');
           }
@@ -358,10 +367,10 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
       }
     } else if (process.platform === 'darwin') {
       // macOS
-      command = `afplay "${filePath}"`;
+      command = `afplay "${cleanFilePath}"`;
     } else if (process.platform === 'win32') {
       // Windows - use ffplay if available
-      command = `ffplay -nodisp -autoexit "${filePath}"`;
+      command = `ffplay -nodisp -autoexit "${cleanFilePath}"`;
     } else {
       throw new Error('Unsupported platform for hardware playback');
     }
@@ -370,8 +379,31 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
     
     // Start the audio process
     const { spawn } = require('child_process');
-    const args = command.split(' ').slice(1);
-    const cmd = command.split(' ')[0];
+    
+    // Don't split on spaces - build arguments properly
+    let cmd: string;
+    let args: string[];
+    
+    if (command.startsWith('mpg123 ')) {
+      cmd = 'mpg123';
+      args = [cleanFilePath]; // Use the cleaned file path
+    } else if (command.startsWith('ffplay ')) {
+      cmd = 'ffplay';
+      args = ['-nodisp', '-autoexit', cleanFilePath];
+    } else if (command.startsWith('paplay ')) {
+      cmd = 'paplay';
+      args = [cleanFilePath];
+    } else if (command.startsWith('afplay ')) {
+      cmd = 'afplay';
+      args = [cleanFilePath];
+    } else {
+      // Fallback - try to split but this might still have issues
+      const parts = command.split(' ');
+      cmd = parts[0];
+      args = parts.slice(1);
+    }
+    
+    console.log(`Executing: ${cmd} with args:`, args);
     
     hardwareProcess = spawn(cmd, args, {
       stdio: 'pipe',
