@@ -38,6 +38,17 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
       const response = await fetch(`${apiBase}/audio/current`)
       const data = await response.json()
       setPlaybackState(data)
+      // Update playback mode from backend response
+      if (data.playbackMode && data.playbackMode !== playbackMode) {
+        console.log(`🔄 [FRONTEND] Updating playback mode from backend: ${data.playbackMode}`)
+        setPlaybackMode(data.playbackMode)
+      }
+      
+      // Update volume from backend response (for hardware mode)
+      if (typeof data.volume === 'number' && data.volume !== volume && data.playbackMode === 'hardware') {
+        console.log(`🔊 [FRONTEND] Updating volume from backend: ${data.volume}%`)
+        setVolume(data.volume)
+      }
     } catch (error) {
       console.error('Failed to fetch playback state:', error)
     }
@@ -71,15 +82,30 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
     }
   }, [audioEnhancementService])
 
-  const handleVolumeChange = useCallback((newVolume: number) => {
+  const handleVolumeChange = useCallback(async (newVolume: number) => {
     setVolume(newVolume)
     
-    if (audioRef.current) {
+    // For browser playback, set audio element volume
+    if (playbackMode === 'browser' && audioRef.current) {
       audioRef.current.volume = newVolume / 100
     }
     
-    console.log(`🔊 [PLAYER] Volume changed to: ${newVolume}%`)
-  }, [])
+    // For hardware playback, set system volume via backend
+    if (playbackMode === 'hardware') {
+      try {
+        console.log(`🔊 [FRONTEND] Setting hardware volume to ${newVolume}%`)
+        await fetch(`${apiBase}/audio/volume`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ volume: newVolume })
+        })
+      } catch (error) {
+        console.error('Failed to set hardware volume:', error)
+      }
+    }
+    
+    console.log(`🔊 [PLAYER] Volume changed to: ${newVolume}% (mode: ${playbackMode})`)
+  }, [playbackMode, apiBase])
 
   const handlePlaybackModeChange = async (mode: PlaybackMode) => {
     try {
@@ -89,8 +115,21 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
       if (mode === 'hardware' && audioRef.current) {
         console.log(`🛑 [FRONTEND] Stopping browser audio for hardware mode`)
         audioRef.current.pause()
+        
+        // Temporarily disable error handling to prevent errors when clearing source
+        const originalOnError = audioRef.current.onerror
+        audioRef.current.onerror = null
+        
         audioRef.current.src = ''
         audioRef.current.load()
+        
+        // Restore error handling after a brief delay
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.onerror = originalOnError
+          }
+        }, 100)
+        
         setBrowserControlledState(null)
       }
       

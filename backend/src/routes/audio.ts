@@ -30,6 +30,7 @@ let duration = 0; // in seconds
 let playbackStartTime = Date.now();
 let playbackMode: 'browser' | 'hardware' = 'browser'; // Default to browser playback
 let hardwareProcess: any = null; // Store hardware audio process
+let systemVolume = 75; // System volume (0-100)
 
 router.get('/playlists', (req, res) => {
   res.json({ playlists: [] });
@@ -73,7 +74,8 @@ router.get('/current', (req, res) => {
     progress: Math.min(100, Math.max(0, progress)),
     currentTime: Math.floor(currentTime),
     duration: Math.floor(duration),
-    playbackMode
+    playbackMode,
+    volume: systemVolume
   };
   
   // Log current state (but not too frequently)
@@ -106,8 +108,19 @@ router.post('/playback-mode', (req, res) => {
   }
 
   playbackMode = mode;
+  
+  // Set system volume when switching to hardware mode
+  if (mode === 'hardware') {
+    try {
+      await setSystemVolume(systemVolume);
+      console.log(`🔊 [AUDIO] System volume set to ${systemVolume}% for hardware mode`);
+    } catch (error) {
+      console.error('⚠️ [AUDIO] Failed to set system volume:', error);
+    }
+  }
+  
   console.log(`✅ [AUDIO] Playback mode set to: ${mode}`);
-  res.json({ playbackMode, message: `Playback mode set to ${mode}` });
+  res.json({ playbackMode, volume: systemVolume, message: `Playback mode set to ${mode}` });
 });
 
 // Play track by ID
@@ -322,6 +335,71 @@ router.post('/seek', (req, res) => {
     res.status(400).json({ error: 'Invalid seek time' });
   }
 });
+
+// Volume control
+router.post('/volume', async (req, res) => {
+  const { volume } = req.body;
+  console.log(`🔊 [AUDIO] Volume request: ${volume}% (mode: ${playbackMode})`);
+  
+  if (typeof volume !== 'number' || volume < 0 || volume > 100) {
+    console.log(`❌ [AUDIO] Invalid volume: ${volume}`);
+    return res.status(400).json({ error: 'Volume must be between 0 and 100' });
+  }
+
+  systemVolume = volume;
+  
+  // Apply volume control for hardware mode
+  if (playbackMode === 'hardware') {
+    try {
+      await setSystemVolume(volume);
+      console.log(`✅ [AUDIO] System volume set to ${volume}%`);
+    } catch (error) {
+      console.error('❌ [AUDIO] Failed to set system volume:', error);
+      return res.status(500).json({ error: 'Failed to set system volume' });
+    }
+  }
+  
+  res.json({ volume: systemVolume, status: 'volume_set', playbackMode });
+});
+
+// System volume control function
+async function setSystemVolume(volume: number): Promise<void> {
+  try {
+    let command: string;
+    
+    if (process.platform === 'linux') {
+      // For Raspberry Pi / Linux, use amixer (ALSA) or pactl (PulseAudio)
+      try {
+        // Try amixer first (common on Raspberry Pi)
+        await execAsync('which amixer');
+        command = `amixer sset 'Master' ${volume}%`;
+      } catch {
+        try {
+          // Fallback to pactl (PulseAudio)
+          await execAsync('which pactl');
+          command = `pactl set-sink-volume @DEFAULT_SINK@ ${volume}%`;
+        } catch {
+          throw new Error('No suitable volume control found (tried amixer, pactl)');
+        }
+      }
+    } else if (process.platform === 'darwin') {
+      // macOS - use osascript to set system volume
+      command = `osascript -e "set volume output volume ${volume}"`;
+    } else if (process.platform === 'win32') {
+      // Windows - this would require a more complex solution
+      throw new Error('Windows volume control not implemented');
+    } else {
+      throw new Error('Unsupported platform for volume control');
+    }
+
+    console.log(`Setting system volume: ${command}`);
+    await execAsync(command);
+    
+  } catch (error) {
+    console.error('Failed to set system volume:', error);
+    throw error;
+  }
+}
 
 // Hardware playback function
 async function startHardwarePlayback(filePath: string): Promise<void> {
