@@ -87,7 +87,7 @@ router.get('/current', (req, res) => {
 });
 
 // Set playback mode
-router.post('/playback-mode', (req, res) => {
+router.post('/playback-mode', async (req, res) => {
   const { mode } = req.body;
   console.log(`🎵 [AUDIO] Setting playback mode to: ${mode}`);
   
