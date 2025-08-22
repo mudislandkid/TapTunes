@@ -2,11 +2,17 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
-import { parseFile } from 'music-metadata';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { MediaService } from '../services/mediaService';
 import { MetadataService } from '../services/metadataService';
+
+// Dynamic import for ESM-only module
+let parseFile: any;
+const musicMetadataPromise = import('music-metadata').then(mm => {
+  parseFile = mm.parseFile;
+  return mm;
+});
 
 const router = express.Router();
 const mediaService = new MediaService();
@@ -75,6 +81,11 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
     for (const file of req.files) {
       try {
+        // Ensure music-metadata is loaded
+        if (!parseFile) {
+          await musicMetadataPromise;
+        }
+        
         // Extract metadata from audio file
         const metadata = await parseFile(file.path);
         
@@ -246,6 +257,10 @@ router.post('/download-youtube', async (req, res) => {
     // Extract audio metadata
     let metadata: any = {};
     try {
+      // Ensure music-metadata is loaded
+      if (!parseFile) {
+        await musicMetadataPromise;
+      }
       metadata = await parseFile(audioFilePath);
       console.log(`🎵 [YOUTUBE] Audio metadata extracted`);
     } catch (error) {
