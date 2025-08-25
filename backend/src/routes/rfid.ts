@@ -114,7 +114,7 @@ router.post('/scan', async (req, res) => {
             data = { track };
             console.log(`🎵 [RFID] Playing track: ${track.title} - ${track.artist}`);
             console.log(`🔍 [RFID] Track ID: ${track.id}`);
-            console.log(`📁 [RFID] File path: ${track.filePath}`);
+            console.log(`📁 [RFID] File path: ${track.file_path}`);
             
             // Actually start playback via audio API
             console.log(`🌐 [RFID] Making HTTP request to play track...`);

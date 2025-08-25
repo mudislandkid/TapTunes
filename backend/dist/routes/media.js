@@ -44,12 +44,19 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const mediaService_1 = require("../services/mediaService");
 const metadataService_1 = require("../services/metadataService");
-// Function to dynamically import music-metadata
+// Import music-metadata properly
 let parseFile;
 async function ensureMusicMetadata() {
     if (!parseFile) {
-        const mm = await Promise.resolve().then(() => __importStar(require('music-metadata')));
-        parseFile = mm.parseFile;
+        try {
+            const mm = await Promise.resolve().then(() => __importStar(require('music-metadata')));
+            parseFile = mm.parseFile || mm.default?.parseFile;
+        }
+        catch (error) {
+            console.error('Failed to load music-metadata:', error);
+            // Fallback: skip metadata parsing
+            parseFile = null;
+        }
     }
 }
 const router = express_1.default.Router();
@@ -116,7 +123,17 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 // Ensure music-metadata is loaded
                 await ensureMusicMetadata();
                 // Extract metadata from audio file
-                const metadata = await parseFile(file.path);
+                let metadata;
+                if (parseFile) {
+                    metadata = await parseFile(file.path);
+                }
+                else {
+                    // Fallback metadata when music-metadata fails
+                    metadata = {
+                        common: {},
+                        format: { duration: 0 }
+                    };
+                }
                 // Create track record
                 const track = await mediaService.createTrack({
                     title: metadata.common.title || path_1.default.basename(file.originalname, path_1.default.extname(file.originalname)),
@@ -264,11 +281,18 @@ router.post('/download-youtube', async (req, res) => {
         try {
             // Ensure music-metadata is loaded
             await ensureMusicMetadata();
-            metadata = await parseFile(audioFilePath);
-            console.log(`🎵 [YOUTUBE] Audio metadata extracted`);
+            if (parseFile) {
+                metadata = await parseFile(audioFilePath);
+                console.log(`🎵 [YOUTUBE] Audio metadata extracted`);
+            }
+            else {
+                console.warn('Music-metadata not available, using defaults');
+                metadata = { common: {}, format: { duration: 0 } };
+            }
         }
         catch (error) {
             console.warn('Failed to extract audio metadata:', error);
+            metadata = { common: {}, format: { duration: 0 } };
         }
         // Get file stats
         const stats = await promises_1.default.stat(audioFilePath);
