@@ -55,10 +55,12 @@ export interface DatabasePlaylistTrack {
 
 export interface DatabaseRFIDCard {
   id: string;
+  card_id: string; // The actual RFID card ID
   name: string;
   description?: string;
-  playlist_id?: string;
-  action: string;
+  assignment_type?: 'track' | 'playlist' | 'album' | 'artist' | 'action';
+  assignment_id?: string; // ID of the assigned track/playlist/album/artist
+  action?: string; // For action cards (play_pause, next, previous, volume_up, volume_down)
   created_at: string;
   last_used?: string;
   usage_count: number;
@@ -159,15 +161,16 @@ export class DatabaseService {
       // RFID cards table
       `CREATE TABLE IF NOT EXISTS rfid_cards (
         id TEXT PRIMARY KEY,
+        card_id TEXT NOT NULL UNIQUE,
         name TEXT NOT NULL,
         description TEXT,
-        playlist_id TEXT,
-        action TEXT NOT NULL,
+        assignment_type TEXT,
+        assignment_id TEXT,
+        action TEXT,
         created_at TEXT NOT NULL,
         last_used TEXT,
         usage_count INTEGER DEFAULT 0,
-        color TEXT,
-        FOREIGN KEY (playlist_id) REFERENCES playlists (id) ON DELETE SET NULL
+        color TEXT
       )`
     ];
 
@@ -205,7 +208,10 @@ export class DatabaseService {
     // Add thumbnail_path and source_url columns if they don't exist
     const migrations = [
       'ALTER TABLE tracks ADD COLUMN thumbnail_path TEXT',
-      'ALTER TABLE tracks ADD COLUMN source_url TEXT'
+      'ALTER TABLE tracks ADD COLUMN source_url TEXT',
+      'ALTER TABLE rfid_cards ADD COLUMN card_id TEXT',
+      'ALTER TABLE rfid_cards ADD COLUMN assignment_type TEXT',
+      'ALTER TABLE rfid_cards ADD COLUMN assignment_id TEXT'
     ];
 
     migrations.forEach(sql => {
@@ -600,16 +606,40 @@ export class DatabaseService {
     };
 
     const sql = `
-      INSERT INTO rfid_cards (id, name, description, playlist_id, action, created_at, last_used, usage_count, color)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO rfid_cards (id, card_id, name, description, assignment_type, assignment_id, action, created_at, last_used, usage_count, color)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     await this.runQuery(sql, [
-      card.id, card.name, card.description, card.playlist_id,
-      card.action, card.created_at, card.last_used, card.usage_count, card.color
+      card.id, card.card_id, card.name, card.description, card.assignment_type,
+      card.assignment_id, card.action, card.created_at, card.last_used, card.usage_count, card.color
     ]);
 
     return card;
+  }
+
+  async getRFIDCardByCardId(cardId: string): Promise<DatabaseRFIDCard | null> {
+    return await this.getQuery('SELECT * FROM rfid_cards WHERE card_id = ?', [cardId]);
+  }
+
+  async updateRFIDCard(id: string, updates: Partial<DatabaseRFIDCard>): Promise<boolean> {
+    const updateFields = [];
+    const updateValues = [];
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined && key !== 'id' && key !== 'created_at') {
+        updateFields.push(`${key} = ?`);
+        updateValues.push(value);
+      }
+    }
+
+    if (updateFields.length === 0) return true;
+
+    updateValues.push(id);
+    const sql = `UPDATE rfid_cards SET ${updateFields.join(', ')} WHERE id = ?`;
+    
+    await this.runQuery(sql, updateValues);
+    return true;
   }
 
   async getRFIDCards(): Promise<DatabaseRFIDCard[]> {

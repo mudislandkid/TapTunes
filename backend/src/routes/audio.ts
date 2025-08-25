@@ -28,7 +28,7 @@ let isPlaying = false;
 let currentTime = 0; // in seconds
 let duration = 0; // in seconds
 let playbackStartTime = Date.now();
-let playbackMode: 'browser' | 'hardware' = 'browser'; // Default to browser playback
+let playbackMode: 'browser' | 'hardware' = 'hardware'; // Default to hardware playback
 let hardwareProcess: any = null; // Store hardware audio process
 let systemVolume = 75; // System volume (0-100)
 
@@ -232,7 +232,7 @@ router.post('/play-playlist', async (req, res) => {
   }
 });
 
-router.post('/play', (req, res) => {
+router.post('/play', async (req, res) => {
   const { playlistId, trackIndex } = req.body;
   isPlaying = true;
   playbackStartTime = Date.now();
@@ -243,20 +243,10 @@ router.post('/play', (req, res) => {
 
   // Start/resume hardware playback if in hardware mode and we have a current track
   if (playbackMode === 'hardware' && currentPlaylist?.tracks[currentTrackIndex]) {
-    if (hardwareProcess) {
-      // Resume paused process
-      try {
-        console.log(`▶️ [AUDIO] Resuming paused hardware playback`);
-        hardwareProcess.kill('SIGCONT'); // Resume process
-      } catch (error) {
-        console.error('Error resuming hardware playback:', error);
-        // If resume fails, start fresh
-        startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
-      }
-    } else {
-      // Start new playback
-      startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
-    }
+    // For now, always restart playback instead of trying to resume
+    // This is more reliable than SIGSTOP/SIGCONT which may not work with all audio players
+    console.log(`▶️ [AUDIO] Starting hardware playback`);
+    await startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
   }
 
   res.json({ status: 'playing', trackIndex: currentTrackIndex, playbackMode });
@@ -265,12 +255,14 @@ router.post('/play', (req, res) => {
 router.post('/pause', (req, res) => {
   isPlaying = false;
   
-  // Pause hardware playback if in hardware mode
+  // Stop hardware playback if in hardware mode (we'll restart on play)
   if (playbackMode === 'hardware' && hardwareProcess) {
     try {
-      hardwareProcess.kill('SIGSTOP'); // Pause process
+      console.log(`⏸️ [AUDIO] Stopping hardware playback for pause`);
+      hardwareProcess.kill();
+      hardwareProcess = null;
     } catch (error) {
-      console.error('Error pausing hardware playback:', error);
+      console.error('Error stopping hardware playback:', error);
     }
   }
   
@@ -382,35 +374,123 @@ async function setSystemVolume(volume: number): Promise<void> {
     
     if (process.platform === 'linux') {
       // For Raspberry Pi / Linux, use amixer (ALSA) or pactl (PulseAudio)
+      
+      // First, try to find the correct mixer control
       try {
-        // Try amixer first (common on Raspberry Pi)
+        // Check if amixer is available
         await execAsync('which amixer');
-        command = `amixer sset 'Master' ${volume}%`;
-      } catch {
+        
+        // For Waveshare Audio HAT, we need to use the correct card and control
+        // The Waveshare HAT usually appears as card 0 or card 1
+        
+        // First try to list all cards to find the Waveshare HAT
+        try {
+          const { stdout: cards } = await execAsync('cat /proc/asound/cards');
+          console.log(`Available sound cards: ${cards}`);
+        } catch {
+          console.log('Could not list sound cards');
+        }
+        
+        // Try to get available mixer controls for the Waveshare HAT
+        // Waveshare HAT typically uses 'Playback' or 'PCM' control
+        const mixerCommands = [
+          `amixer set Playback ${volume}%`,           // Try Playback control
+          `amixer -c 0 set PCM ${volume}%`,           // Try PCM on card 0
+          `amixer -c 1 set PCM ${volume}%`,           // Try PCM on card 1
+          `amixer sset PCM ${volume}%`,               // Try PCM with sset
+          `amixer set PCM ${volume}%`,                // Try PCM without card
+          `amixer -c 0 set Playback ${volume}%`,      // Try Playback on card 0
+          `amixer -c 1 set Playback ${volume}%`,      // Try Playback on card 1
+          `amixer set Master ${volume}%`,             // Fallback to Master
+          `amixer -c 0 set Master ${volume}%`,        // Try Master on card 0
+          `amixer sset 'Master' ${volume}%`           // Try Master with quotes
+        ];
+        
+        let volumeSet = false;
+        for (const cmd of mixerCommands) {
+          try {
+            console.log(`Trying volume command: ${cmd}`);
+            await execAsync(cmd);
+            volumeSet = true;
+            console.log(`✅ Successfully set volume with: ${cmd}`);
+            return; // Success, exit early
+          } catch (err) {
+            // This command didn't work, try the next one
+            continue;
+          }
+        }
+        
+        if (!volumeSet) {
+          // If none of the specific commands worked, try to detect the mixer name
+          try {
+            const { stdout: mixers } = await execAsync('amixer scontrols');
+            console.log(`Available mixer controls: ${mixers}`);
+            
+            // Extract the first mixer control name
+            const match = mixers.match(/Simple mixer control '([^']+)'/);
+            if (match && match[1]) {
+              command = `amixer sset '${match[1]}' ${volume}%`;
+              await execAsync(command);
+              console.log(`✅ Set volume using detected mixer: ${match[1]}`);
+              return;
+            }
+          } catch {
+            console.log('Could not detect mixer controls');
+          }
+        }
+      } catch (amixerError) {
+        console.log('amixer not available or failed, trying pactl...');
+        
         try {
           // Fallback to pactl (PulseAudio)
           await execAsync('which pactl');
-          command = `pactl set-sink-volume @DEFAULT_SINK@ ${volume}%`;
-        } catch {
-          throw new Error('No suitable volume control found (tried amixer, pactl)');
+          
+          // Get the default sink
+          const { stdout: defaultSink } = await execAsync("pactl info | grep 'Default Sink' | cut -d: -f2");
+          const sinkName = defaultSink.trim();
+          
+          if (sinkName) {
+            command = `pactl set-sink-volume ${sinkName} ${volume}%`;
+          } else {
+            command = `pactl set-sink-volume @DEFAULT_SINK@ ${volume}%`;
+          }
+          
+          await execAsync(command);
+          console.log(`✅ Successfully set volume using PulseAudio`);
+          return;
+        } catch (pactlError) {
+          console.log('pactl not available or failed, trying alsamixer...');
+          
+          // Last resort: try alsamixer command directly
+          try {
+            // Convert percentage to 0-65536 range for some ALSA implementations
+            const alsaVolume = Math.round((volume / 100) * 65536);
+            command = `amixer -c 0 set PCM ${volume}%`;
+            await execAsync(command);
+            console.log(`✅ Successfully set volume using direct ALSA command`);
+            return;
+          } catch {
+            throw new Error('No suitable volume control found (tried amixer with multiple mixers, pactl, and direct ALSA)');
+          }
         }
       }
     } else if (process.platform === 'darwin') {
-      // macOS - use osascript to set system volume
-      command = `osascript -e "set volume output volume ${volume}"`;
+      // macOS - use osascript to set system volume (0-100 scale needs to be converted to 0-7 scale)
+      const macVolume = Math.round((volume / 100) * 7);
+      command = `osascript -e "set volume ${macVolume}"`;
+      await execAsync(command);
+      console.log(`✅ Successfully set volume on macOS`);
     } else if (process.platform === 'win32') {
       // Windows - this would require a more complex solution
       throw new Error('Windows volume control not implemented');
     } else {
       throw new Error('Unsupported platform for volume control');
     }
-
-    console.log(`Setting system volume: ${command}`);
-    await execAsync(command);
     
   } catch (error) {
-    console.error('Failed to set system volume:', error);
-    throw error;
+    console.error('❌ Failed to set system volume:', error);
+    // Don't throw the error, just log it - this allows playback to continue even if volume control fails
+    // throw error;
   }
 }
 
