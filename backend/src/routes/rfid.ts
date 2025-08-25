@@ -145,7 +145,7 @@ router.post('/scan', async (req, res) => {
                   artist: t.artist,
                   album: t.album,
                   duration: t.duration,
-                  filePath: t.filePath
+                  filePath: t.file_path
                 })),
                 startIndex: 0
               });
@@ -179,7 +179,7 @@ router.post('/scan', async (req, res) => {
                   artist: t.artist,
                   album: t.album,
                   duration: t.duration,
-                  filePath: t.filePath
+                  filePath: t.file_path
                 })),
                 startIndex: 0
               });
@@ -213,7 +213,7 @@ router.post('/scan', async (req, res) => {
                   artist: t.artist,
                   album: t.album,
                   duration: t.duration,
-                  filePath: t.filePath
+                  filePath: t.file_path
                 })),
                 startIndex: 0
               });
