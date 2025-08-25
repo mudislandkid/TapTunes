@@ -111,8 +111,9 @@ class BackendClient:
     def notify_card_scan(self, card_id: str) -> bool:
         """Notify backend of card scan"""
         try:
+            # Use the new card-detected endpoint
             response = requests.post(
-                f"{self.base_url}/api/rfid/scan",
+                f"{self.base_url}/api/rfid/card-detected",
                 json={"cardId": card_id},
                 timeout=5
             )

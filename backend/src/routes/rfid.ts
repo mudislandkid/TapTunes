@@ -180,22 +180,101 @@ router.post('/scan', async (req, res) => {
   }
 });
 
-// Read card endpoint - used to get card ID when scanning a new card
+// Store for pending card reads
+let pendingCardRead: { resolve: (cardId: string) => void; reject: (error: Error) => void; timeout: NodeJS.Timeout } | null = null;
+
+// Read card endpoint - waits for the next card scan from RFID service
 router.post('/read', async (req, res) => {
   try {
-    // This endpoint would be called by the RFID reader service
-    // For testing, we'll simulate reading a card
-    const simulatedCardId = `CARD_${Date.now()}`;
+    console.log(`📖 [RFID] Waiting for card scan...`);
     
-    console.log(`📖 [RFID] Reading card... (simulated: ${simulatedCardId})`);
+    // Clear any existing pending read
+    if (pendingCardRead) {
+      clearTimeout(pendingCardRead.timeout);
+      pendingCardRead.reject(new Error('New read request received'));
+    }
     
-    res.json({ 
-      cardId: simulatedCardId,
-      message: 'Card read successfully. You can now assign this card.'
+    // Set up promise to wait for card scan
+    const cardPromise = new Promise<string>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        pendingCardRead = null;
+        reject(new Error('Card read timeout - no card detected in 30 seconds'));
+      }, 30000); // 30 second timeout
+      
+      pendingCardRead = { resolve, reject, timeout };
     });
+    
+    try {
+      const cardId = await cardPromise;
+      console.log(`✅ [RFID] Card read successfully: ${cardId}`);
+      
+      res.json({ 
+        cardId: cardId,
+        message: 'Card read successfully. You can now assign this card.'
+      });
+    } catch (error: any) {
+      console.log(`❌ [RFID] Card read failed: ${error.message}`);
+      res.status(408).json({ error: error.message });
+    }
   } catch (error) {
-    console.error('Error reading RFID card:', error);
+    console.error('Error in card read endpoint:', error);
     res.status(500).json({ error: 'Failed to read RFID card' });
+  }
+});
+
+// Endpoint for RFID service to report card reads when in "read mode"
+router.post('/card-detected', async (req, res) => {
+  try {
+    const { cardId } = req.body;
+    
+    if (pendingCardRead) {
+      console.log(`📖 [RFID] Card detected for pending read: ${cardId}`);
+      clearTimeout(pendingCardRead.timeout);
+      pendingCardRead.resolve(cardId);
+      pendingCardRead = null;
+      res.json({ success: true, message: 'Card read completed' });
+    } else {
+      // No pending read, process as normal scan
+      console.log(`🎫 [RFID] Card scanned (no pending read): ${cardId}`);
+      
+      const card = await databaseService.getRFIDCardByCardId(cardId);
+      
+      if (!card) {
+        console.log(`❌ [RFID] Unknown card: ${cardId}`);
+        return res.status(404).json({ error: 'Card not registered', cardId });
+      }
+      
+      // Process the card scan (same logic as /scan endpoint)
+      await databaseService.updateRFIDCardUsage(card.id);
+      
+      // Handle card action based on assignment type
+      let action = null;
+      let data = null;
+
+      switch (card.assignment_type) {
+        case 'track':
+          if (card.assignment_id) {
+            const track = await databaseService.getTrackById(card.assignment_id);
+            if (track) {
+              action = 'play_track';
+              data = { track };
+              console.log(`🎵 [RFID] Playing track: ${track.title}`);
+            }
+          }
+          break;
+        // ... other assignment types (same as scan endpoint)
+      }
+
+      res.json({ 
+        card, 
+        action,
+        data,
+        message: `Card "${card.name}" scanned successfully` 
+      });
+    }
+  } catch (error) {
+    console.error('Error handling card detection:', error);
+    res.status(500).json({ error: 'Failed to process card detection' });
   }
 });
 
