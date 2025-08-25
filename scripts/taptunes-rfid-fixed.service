@@ -1,0 +1,20 @@
+[Unit]
+Description=TapTunes RFID Scanner
+After=network.target taptunes-backend.service
+
+[Service]
+Type=simple
+User=greg
+WorkingDirectory=/home/greg/TapTunes/python-services
+ExecStart=/usr/bin/python3 /home/greg/TapTunes/python-services/rfid_service.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+Environment=BACKEND_URL=http://localhost:3001
+
+# System limits for Pi Zero W
+MemoryMax=64M
+CPUQuota=20%
+
+[Install]
+WantedBy=multi-user.target
