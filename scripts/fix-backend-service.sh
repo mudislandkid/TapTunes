@@ -60,8 +60,9 @@ echo "✅ Backend files found at: $WORKING_DIR"
 echo "Stopping existing backend service..."
 systemctl stop taptunes-backend 2>/dev/null || true
 
-# Create corrected service file
-echo "Creating corrected service file..."
+# Create corrected service file with the correct Node.js path
+NODE_PATH="/usr/local/bin/node"
+echo "Creating corrected service file with Node.js at: $NODE_PATH"
 cat > /etc/systemd/system/taptunes-backend.service << EOF
 [Unit]
 Description=TapTunes Backend

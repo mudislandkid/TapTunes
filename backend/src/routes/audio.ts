@@ -517,7 +517,7 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
       // Check if mpg123 is available (good for Raspberry Pi)
       try {
         await execAsync('which mpg123');
-        command = `mpg123 "${cleanFilePath}"`;
+        command = `mpg123 -a hw:0,0 "${cleanFilePath}"`;
       } catch {
         try {
           // Fallback to aplay for WAV files or ffplay
@@ -554,7 +554,7 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
     
     if (command.startsWith('mpg123 ')) {
       cmd = 'mpg123';
-      args = [cleanFilePath]; // Use the cleaned file path
+      args = ['-a', 'hw:0,0', cleanFilePath]; // Use WM8960 audio device
     } else if (command.startsWith('ffplay ')) {
       cmd = 'ffplay';
       args = ['-nodisp', '-autoexit', cleanFilePath];

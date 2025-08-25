@@ -172,7 +172,7 @@ After=network.target
 Type=simple
 User=$CURRENT_USER
 WorkingDirectory=$(pwd)/backend
-ExecStart=/usr/bin/node dist/index.js
+ExecStart=/usr/local/bin/node dist/index.js
 Restart=always
 RestartSec=10
 Environment=NODE_ENV=production
