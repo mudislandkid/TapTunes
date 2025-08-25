@@ -116,15 +116,48 @@ npm install --legacy-peer-deps --no-audit --no-fund
 print_status "Building backend with RFID updates..."
 npm run build
 
-# Step 4: Deploy Frontend (pre-built locally)
-print_status "Deploying pre-built frontend..."
+# Step 4: Configure nginx to serve frontend directly from TapTunes directory
+print_status "Configuring nginx to serve frontend directly..."
 cd ../frontend
 
 if [ -d "dist" ]; then
-    print_status "Found pre-built frontend, deploying to nginx..."
-    sudo cp -r dist/* /var/www/html/
-    sudo chown -R www-data:www-data /var/www/html/
-    print_status "✅ Frontend deployed successfully"
+    print_status "Found pre-built frontend, configuring nginx..."
+    
+    # Update nginx config to serve from TapTunes directory
+    sudo tee /etc/nginx/sites-available/default > /dev/null <<EOF
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    root $(pwd)/dist;
+    index index.html index.htm;
+
+    server_name _;
+    client_max_body_size 500M;
+
+    # Serve static files
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    # Proxy API requests to backend
+    location /api/ {
+        proxy_pass http://localhost:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}
+EOF
+
+    # Test and reload nginx
+    sudo nginx -t && sudo systemctl reload nginx
+    print_status "✅ Nginx configured to serve directly from $(pwd)/dist"
 else
     print_warning "⚠️  No frontend dist/ directory found!"
     print_warning "Please build the frontend locally and copy the dist/ directory to Pi"

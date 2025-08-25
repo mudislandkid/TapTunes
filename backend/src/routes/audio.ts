@@ -166,8 +166,14 @@ router.post('/play-track', async (req, res) => {
 
     // Start hardware playback if in hardware mode
     if (playbackMode === 'hardware') {
-      console.log(`🔊 [AUDIO] Starting hardware playback`);
-      await startHardwarePlayback(track.filePath);
+      console.log(`🔊 [AUDIO] Starting hardware playback for: ${track.filePath}`);
+      try {
+        await startHardwarePlayback(track.filePath);
+        console.log(`✅ [AUDIO] Hardware playback started successfully`);
+      } catch (error) {
+        console.error(`❌ [AUDIO] Hardware playback failed:`, error);
+        throw error;
+      }
     } else {
       console.log(`🌐 [AUDIO] Browser playback mode - frontend should handle audio`);
     }
@@ -543,7 +549,8 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
       throw new Error('Unsupported platform for hardware playback');
     }
 
-    console.log(`Starting hardware playback: ${command}`);
+    console.log(`🔊 [HARDWARE] Starting hardware playback with command: ${command}`);
+    console.log(`📁 [HARDWARE] Clean file path: "${cleanFilePath}"`);
     
     // Start the audio process
     const { spawn } = require('child_process');
@@ -551,6 +558,8 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
     // Don't split on spaces - build arguments properly
     let cmd: string;
     let args: string[];
+    
+    console.log(`🛠️ [HARDWARE] Building spawn arguments...`);
     
     if (command.startsWith('mpg123 ')) {
       cmd = 'mpg123';
@@ -571,20 +580,22 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
       args = parts.slice(1);
     }
     
-    console.log(`Executing: ${cmd} with args:`, args);
+    console.log(`🚀 [HARDWARE] Executing: ${cmd} with args:`, JSON.stringify(args));
     
     hardwareProcess = spawn(cmd, args, {
       stdio: 'pipe',
       detached: false
     });
 
+    console.log(`✨ [HARDWARE] Spawn process created with PID:`, hardwareProcess.pid);
+
     hardwareProcess.on('error', (error: Error) => {
-      console.error('Hardware playback error:', error);
+      console.error('❌ [HARDWARE] Hardware playback error:', error);
       hardwareProcess = null;
     });
 
     hardwareProcess.on('exit', (code: number) => {
-      console.log(`Hardware playback process exited with code ${code}`);
+      console.log(`🏁 [HARDWARE] Hardware playback process exited with code ${code}`);
       hardwareProcess = null;
       
       // Auto-advance to next track if playback finished naturally
