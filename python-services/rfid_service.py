@@ -8,9 +8,6 @@ import time
 import requests
 from typing import Optional
 import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
