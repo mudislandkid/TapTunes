@@ -24,8 +24,42 @@ class RFIDReader:
     
     def _is_raspberry_pi(self) -> bool:
         """Check if running on Raspberry Pi"""
+        # Check multiple indicators
         machine = platform.machine()
-        return machine in ['armv7l', 'aarch64']
+        
+        # Check for ARM architecture
+        if machine in ['armv6l', 'armv7l', 'aarch64', 'arm64']:
+            return True
+            
+        # Check for Raspberry Pi specific files
+        pi_files = ['/proc/device-tree/model', '/sys/firmware/devicetree/base/model']
+        for pi_file in pi_files:
+            try:
+                if os.path.exists(pi_file):
+                    with open(pi_file, 'r') as f:
+                        content = f.read()
+                        if 'Raspberry Pi' in content:
+                            return True
+            except:
+                pass
+                
+        # Check /proc/cpuinfo for Raspberry Pi
+        try:
+            with open('/proc/cpuinfo', 'r') as f:
+                cpuinfo = f.read()
+                if 'Raspberry Pi' in cpuinfo:
+                    return True
+        except:
+            pass
+            
+        # If we can import RPi.GPIO, we're probably on a Pi
+        try:
+            import RPi.GPIO
+            return True
+        except ImportError:
+            pass
+            
+        return False
     
     def _setup_reader(self):
         """Setup RFID reader - only on Raspberry Pi"""
