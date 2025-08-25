@@ -391,19 +391,16 @@ async function setSystemVolume(volume: number): Promise<void> {
           console.log('Could not list sound cards');
         }
         
-        // Try to get available mixer controls for the Waveshare HAT
-        // Waveshare HAT typically uses 'Playback' or 'PCM' control
+        // For WM8960 sound card (based on diagnostic output)
+        // Working commands: "amixer set Master 50%" and "amixer -c 0 set Playback 50%"
         const mixerCommands = [
-          `amixer set Playback ${volume}%`,           // Try Playback control
-          `amixer -c 0 set PCM ${volume}%`,           // Try PCM on card 0
-          `amixer -c 1 set PCM ${volume}%`,           // Try PCM on card 1
-          `amixer sset PCM ${volume}%`,               // Try PCM with sset
-          `amixer set PCM ${volume}%`,                // Try PCM without card
-          `amixer -c 0 set Playback ${volume}%`,      // Try Playback on card 0
-          `amixer -c 1 set Playback ${volume}%`,      // Try Playback on card 1
-          `amixer set Master ${volume}%`,             // Fallback to Master
-          `amixer -c 0 set Master ${volume}%`,        // Try Master on card 0
-          `amixer sset 'Master' ${volume}%`           // Try Master with quotes
+          `amixer set Master ${volume}%`,             // Primary: Works with WM8960
+          `amixer -c 0 set Playback ${volume}%`,      // Secondary: Also works with WM8960
+          `amixer -c 0 set Master ${volume}%`,        // Fallback: Master on card 0
+          `amixer sset Master ${volume}%`,            // Fallback: Master with sset
+          `amixer -c 0 set PCM ${volume}%`,           // Generic fallback
+          `amixer set PCM ${volume}%`,                // Generic fallback
+          `amixer sset 'Master' ${volume}%`           // Last resort
         ];
         
         let volumeSet = false;
