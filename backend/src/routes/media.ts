@@ -7,12 +7,18 @@ import { promisify } from 'util';
 import { MediaService } from '../services/mediaService';
 import { MetadataService } from '../services/metadataService';
 
-// Function to dynamically import music-metadata
+// Import music-metadata properly
 let parseFile: any;
 async function ensureMusicMetadata() {
   if (!parseFile) {
-    const mm = await import('music-metadata');
-    parseFile = mm.parseFile;
+    try {
+      const mm = await import('music-metadata');
+      parseFile = mm.parseFile || mm.default?.parseFile;
+    } catch (error) {
+      console.error('Failed to load music-metadata:', error);
+      // Fallback: skip metadata parsing
+      parseFile = null;
+    }
   }
 }
 
@@ -87,7 +93,16 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         await ensureMusicMetadata();
         
         // Extract metadata from audio file
-        const metadata = await parseFile(file.path);
+        let metadata;
+        if (parseFile) {
+          metadata = await parseFile(file.path);
+        } else {
+          // Fallback metadata when music-metadata fails
+          metadata = {
+            common: {},
+            format: { duration: 0 }
+          };
+        }
         
         // Create track record
         const track = await mediaService.createTrack({
@@ -259,10 +274,16 @@ router.post('/download-youtube', async (req, res) => {
     try {
       // Ensure music-metadata is loaded
       await ensureMusicMetadata();
-      metadata = await parseFile(audioFilePath);
-      console.log(`🎵 [YOUTUBE] Audio metadata extracted`);
+      if (parseFile) {
+        metadata = await parseFile(audioFilePath);
+        console.log(`🎵 [YOUTUBE] Audio metadata extracted`);
+      } else {
+        console.warn('Music-metadata not available, using defaults');
+        metadata = { common: {}, format: { duration: 0 } };
+      }
     } catch (error) {
       console.warn('Failed to extract audio metadata:', error);
+      metadata = { common: {}, format: { duration: 0 } };
     }
 
     // Get file stats
