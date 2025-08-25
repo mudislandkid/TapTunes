@@ -11,7 +11,7 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
   const [volume, setVolume] = useState(75)
   const [isShuffled, setIsShuffled] = useState(false)
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
-  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('browser')
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('hardware')
   const [playbackState, setPlaybackState] = useState<PlaybackState>({
     playlist: null,
     trackIndex: 0,
@@ -162,7 +162,8 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
 
   const handlePlay = async () => {
     try {
-      if (!audioEnhancementService) {
+      // Only initialize audio enhancement for browser mode
+      if (playbackMode === 'browser' && !audioEnhancementService) {
         await initializeAudioEnhancement()
       }
 
@@ -332,8 +333,8 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
           isManuallyUpdatingSource.current = false
         }, 500)
         
-        // Initialize audio enhancement if needed
-        if (!audioEnhancementService) {
+        // Initialize audio enhancement if needed (browser mode only)
+        if (playbackMode === 'browser' && !audioEnhancementService) {
           await initializeAudioEnhancement()
         }
         
@@ -407,8 +408,8 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
           isManuallyUpdatingSource.current = false
         }, 500)
         
-        // Initialize audio enhancement if needed
-        if (!audioEnhancementService) {
+        // Initialize audio enhancement if needed (browser mode only)
+        if (playbackMode === 'browser' && !audioEnhancementService) {
           await initializeAudioEnhancement()
         }
         
@@ -482,6 +483,25 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
 
   // Update audio source when current track changes in browser mode
   useEffect(() => {
+    // Skip if in hardware mode - do not load audio in browser
+    if (playbackMode === 'hardware') {
+      // Clear browser audio source when in hardware mode
+      if (audioRef.current && audioRef.current.src) {
+        console.log('🛑 [FRONTEND] Clearing browser audio source for hardware mode')
+        const originalOnError = audioRef.current.onerror
+        audioRef.current.onerror = null
+        audioRef.current.pause()
+        audioRef.current.src = ''
+        audioRef.current.load()
+        setTimeout(() => {
+          if (audioRef.current) {
+            audioRef.current.onerror = originalOnError
+          }
+        }, 100)
+      }
+      return
+    }
+    
     // Skip if we're already manually updating the source
     if (isManuallyUpdatingSource.current) {
       console.log('🌐 [FRONTEND] Skipping auto-update - manual update in progress')
@@ -547,29 +567,50 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
   // Audio element event handlers
   const audioElementProps = {
     ref: audioRef,
-    onTimeUpdate: handleBrowserAudioTimeUpdate,
-    onEnded: handleBrowserAudioEnded,
+    onTimeUpdate: playbackMode === 'browser' ? handleBrowserAudioTimeUpdate : undefined,
+    onEnded: playbackMode === 'browser' ? handleBrowserAudioEnded : undefined,
     onPlay: () => {
-      console.log(`🌐 [FRONTEND] Audio element started playing`)
       if (playbackMode === 'browser') {
+        console.log(`🌐 [FRONTEND] Audio element started playing`)
         setPlaybackState(prev => ({ ...prev, isPlaying: true }))
         setTimeout(() => setBrowserControlledState(null), 500)
       }
     },
     onPause: () => {
-      console.log(`🌐 [FRONTEND] Audio element paused`)
       if (playbackMode === 'browser') {
+        console.log(`🌐 [FRONTEND] Audio element paused`)
         setPlaybackState(prev => ({ ...prev, isPlaying: false }))
         setTimeout(() => setBrowserControlledState(null), 500)
       }
     },
-    onLoadStart: () => console.log(`🌐 [FRONTEND] Audio loading started`),
-    onCanPlay: () => console.log(`🌐 [FRONTEND] Audio can play`),
-    onCanPlayThrough: () => console.log(`🌐 [FRONTEND] Audio can play through`),
-    onError: (e: any) => console.error(`❌ [FRONTEND] Audio error:`, e),
-    onLoadedMetadata: () => console.log(`🌐 [FRONTEND] Audio metadata loaded`),
+    onLoadStart: () => {
+      if (playbackMode === 'browser') {
+        console.log(`🌐 [FRONTEND] Audio loading started`)
+      }
+    },
+    onCanPlay: () => {
+      if (playbackMode === 'browser') {
+        console.log(`🌐 [FRONTEND] Audio can play`)
+      }
+    },
+    onCanPlayThrough: () => {
+      if (playbackMode === 'browser') {
+        console.log(`🌐 [FRONTEND] Audio can play through`)
+      }
+    },
+    onError: (e: any) => {
+      // Only log errors in browser mode to avoid noise in hardware mode
+      if (playbackMode === 'browser') {
+        console.error(`❌ [FRONTEND] Audio error:`, e)
+      }
+    },
+    onLoadedMetadata: () => {
+      if (playbackMode === 'browser') {
+        console.log(`🌐 [FRONTEND] Audio metadata loaded`)
+      }
+    },
     crossOrigin: "anonymous" as const,
-    preload: "auto" as const,
+    preload: playbackMode === 'browser' ? "auto" as const : "none" as const,
     loop: false,
     style: { display: 'none' }
   }

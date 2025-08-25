@@ -60,7 +60,7 @@ export const AppLayout = memo(function AppLayout({
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2, ...springConfig }}
                 >
-                  Phoniebox
+                  TapTunes
                 </motion.h1>
                 <motion.p 
                   className="text-sm text-slate-300"
