@@ -7,17 +7,29 @@ import { promisify } from 'util';
 import { MediaService } from '../services/mediaService';
 import { MetadataService } from '../services/metadataService';
 
-// Import music-metadata properly
+// Import music-metadata using require for better Node.js compatibility
 let parseFile: any;
 async function ensureMusicMetadata() {
   if (!parseFile) {
     try {
-      const mm = await import('music-metadata');
-      parseFile = mm.parseFile || mm.default?.parseFile;
-    } catch (error) {
-      console.error('Failed to load music-metadata:', error);
-      // Fallback: skip metadata parsing
-      parseFile = null;
+      // Try CommonJS require first (more reliable in Node.js)
+      const mm = require('music-metadata');
+      parseFile = mm.parseFile;
+      console.log('✅ [METADATA] music-metadata loaded via require');
+    } catch (requireError) {
+      console.warn('⚠️ [METADATA] require failed, trying import...', requireError.message);
+      try {
+        // Fallback to dynamic import
+        const mm = await import('music-metadata');
+        parseFile = mm.parseFile || mm.default?.parseFile;
+        console.log('✅ [METADATA] music-metadata loaded via import');
+      } catch (importError) {
+        console.error('❌ [METADATA] Both require and import failed:', {
+          requireError: requireError.message,
+          importError: importError.message
+        });
+        parseFile = null;
+      }
     }
   }
 }
