@@ -7,9 +7,40 @@ const express_1 = require("express");
 const databaseService_1 = require("../services/databaseService");
 const mediaService_1 = require("../services/mediaService");
 const axios_1 = __importDefault(require("axios"));
+const promises_1 = __importDefault(require("fs/promises"));
+const path_1 = __importDefault(require("path"));
 const router = (0, express_1.Router)();
 const databaseService = new databaseService_1.DatabaseService();
 const mediaService = new mediaService_1.MediaService();
+// Helper function to load settings
+async function loadSettings() {
+    try {
+        const settingsPath = path_1.default.join(process.cwd(), 'data', 'settings.json');
+        const data = await promises_1.default.readFile(settingsPath, 'utf8');
+        return JSON.parse(data);
+    }
+    catch (error) {
+        // Return defaults if settings file doesn't exist
+        return {
+            rfidSameCardBehavior: 'pause',
+            rfidCardDebounceMs: 500,
+            rfidAutoPlayOnScan: true,
+            rfidVolumeCards: true,
+            rfidVolumeStep: 10
+        };
+    }
+}
+// Helper function to get current audio state
+async function getCurrentAudioState() {
+    try {
+        const response = await axios_1.default.get('http://localhost:3001/api/audio/current');
+        return response.data;
+    }
+    catch (error) {
+        console.error('Error getting audio state:', error);
+        return null;
+    }
+}
 // Get all RFID cards
 router.get('/cards', async (req, res) => {
     try {
@@ -361,21 +392,85 @@ router.post('/card-detected', async (req, res) => {
                         if (track) {
                             action = 'play_track';
                             data = { track };
-                            console.log(`🎵 [RFID] Playing track: ${track.title} - ${track.artist}`);
-                            console.log(`🔍 [RFID] Track ID: ${track.id}`);
-                            console.log(`📁 [RFID] File path: ${track.file_path}`);
-                            // Actually start playback via audio API
-                            console.log(`🌐 [RFID] Making HTTP request to play track...`);
-                            try {
-                                const response = await axios_1.default.post('http://localhost:3001/api/audio/play-track', {
-                                    trackId: track.id
-                                });
-                                console.log(`✅ [RFID] Successfully started track playback - Response:`, response.status, response.statusText);
-                                console.log(`📤 [RFID] API Response:`, JSON.stringify(response.data, null, 2));
+                            // Load settings and get current audio state
+                            const settings = await loadSettings();
+                            const audioState = await getCurrentAudioState();
+                            console.log(`⚙️ [RFID] Card behavior setting: ${settings.rfidSameCardBehavior}`);
+                            console.log(`🎵 [RFID] Current playing track ID: ${audioState?.currentTrack?.id || 'none'}`);
+                            console.log(`🎵 [RFID] Scanned track ID: ${track.id}`);
+                            console.log(`▶️ [RFID] Is currently playing: ${audioState?.isPlaying}`);
+                            // Check if this track is already playing
+                            const isSameTrack = audioState?.currentTrack?.id === track.id;
+                            const isCurrentlyPlaying = audioState?.isPlaying;
+                            if (isSameTrack && isCurrentlyPlaying) {
+                                // Same track is playing - apply behavior setting
+                                console.log(`🔄 [RFID] Same card tapped while playing - behavior: ${settings.rfidSameCardBehavior}`);
+                                switch (settings.rfidSameCardBehavior) {
+                                    case 'nothing':
+                                        console.log(`⏸️ [RFID] Doing nothing (as configured)`);
+                                        break;
+                                    case 'pause':
+                                        console.log(`⏸️ [RFID] Pausing playback`);
+                                        try {
+                                            await axios_1.default.post('http://localhost:3001/api/audio/pause');
+                                            console.log(`✅ [RFID] Playback paused successfully`);
+                                        }
+                                        catch (error) {
+                                            console.error(`❌ [RFID] Failed to pause playback:`, error?.message);
+                                        }
+                                        break;
+                                    case 'stop':
+                                        console.log(`⏹️ [RFID] Stopping playback`);
+                                        try {
+                                            await axios_1.default.post('http://localhost:3001/api/audio/stop');
+                                            console.log(`✅ [RFID] Playback stopped successfully`);
+                                        }
+                                        catch (error) {
+                                            console.error(`❌ [RFID] Failed to stop playback:`, error?.message);
+                                        }
+                                        break;
+                                    case 'restart':
+                                        console.log(`🔄 [RFID] Restarting track from beginning`);
+                                        try {
+                                            await axios_1.default.post('http://localhost:3001/api/audio/play-track', {
+                                                trackId: track.id
+                                            });
+                                            console.log(`✅ [RFID] Track restarted successfully`);
+                                        }
+                                        catch (error) {
+                                            console.error(`❌ [RFID] Failed to restart track:`, error?.message);
+                                        }
+                                        break;
+                                }
                             }
-                            catch (error) {
-                                console.error(`❌ [RFID] Failed to start track playback:`, error?.response?.status, error?.response?.statusText);
-                                console.error(`❌ [RFID] Error details:`, error?.response?.data || error?.message);
+                            else if (isSameTrack && !isCurrentlyPlaying) {
+                                // Same track but paused - resume playback
+                                console.log(`▶️ [RFID] Same card tapped while paused - resuming playback`);
+                                try {
+                                    await axios_1.default.post('http://localhost:3001/api/audio/play');
+                                    console.log(`✅ [RFID] Playback resumed successfully`);
+                                }
+                                catch (error) {
+                                    console.error(`❌ [RFID] Failed to resume playback:`, error?.message);
+                                }
+                            }
+                            else {
+                                // Different track or no track playing - start new playback
+                                console.log(`🎵 [RFID] Playing track: ${track.title} - ${track.artist}`);
+                                console.log(`🔍 [RFID] Track ID: ${track.id}`);
+                                console.log(`📁 [RFID] File path: ${track.file_path}`);
+                                console.log(`🌐 [RFID] Making HTTP request to play track...`);
+                                try {
+                                    const response = await axios_1.default.post('http://localhost:3001/api/audio/play-track', {
+                                        trackId: track.id
+                                    });
+                                    console.log(`✅ [RFID] Successfully started track playback - Response:`, response.status, response.statusText);
+                                    console.log(`📤 [RFID] API Response:`, JSON.stringify(response.data, null, 2));
+                                }
+                                catch (error) {
+                                    console.error(`❌ [RFID] Failed to start track playback:`, error?.response?.status, error?.response?.statusText);
+                                    console.error(`❌ [RFID] Error details:`, error?.response?.data || error?.message);
+                                }
                             }
                         }
                     }

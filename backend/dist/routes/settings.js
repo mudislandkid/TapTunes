@@ -31,7 +31,13 @@ const defaultSettings = {
     autoMetadataLookup: true,
     autoDownloadAlbumArt: true,
     preferredAudioQuality: 'high',
-    libraryPath: '/home/pi/taptunes/media'
+    libraryPath: '/home/pi/taptunes/media',
+    // RFID Card Behavior Settings defaults
+    rfidSameCardBehavior: 'pause',
+    rfidCardDebounceMs: 500,
+    rfidAutoPlayOnScan: true,
+    rfidVolumeCards: true,
+    rfidVolumeStep: 10
 };
 const settingsPath = path_1.default.join(process.cwd(), 'data', 'settings.json');
 // Get current settings

@@ -15,7 +15,10 @@ import {
   Database,
   HardDrive,
   Cpu,
-  Thermometer
+  Thermometer,
+  CreditCard,
+  Pause,
+  Square
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -71,6 +74,13 @@ interface AppSettings {
   autoDownloadAlbumArt: boolean;
   preferredAudioQuality: 'low' | 'medium' | 'high' | 'lossless';
   libraryPath: string;
+  
+  // RFID Card Behavior Settings
+  rfidSameCardBehavior: 'nothing' | 'pause' | 'stop' | 'restart';
+  rfidCardDebounceMs: number;
+  rfidAutoPlayOnScan: boolean;
+  rfidVolumeCards: boolean;
+  rfidVolumeStep: number;
 }
 
 const defaultSettings: AppSettings = {
@@ -97,7 +107,12 @@ const defaultSettings: AppSettings = {
   autoMetadataLookup: true,
   autoDownloadAlbumArt: true,
   preferredAudioQuality: 'high',
-  libraryPath: '/home/pi/taptunes/media'
+  libraryPath: '/home/pi/taptunes/media',
+  rfidSameCardBehavior: 'pause',
+  rfidCardDebounceMs: 500,
+  rfidAutoPlayOnScan: true,
+  rfidVolumeCards: true,
+  rfidVolumeStep: 10
 };
 
 export default function Settings({ isVisible, audioEnhancementService, onInitializeAudio }: SettingsProps) {
@@ -288,8 +303,9 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
       </div>
 
       <Tabs defaultValue="audio" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 bg-gray-800/50 border border-gray-700/50">
+        <TabsList className="grid w-full grid-cols-6 bg-gray-800/50 border border-gray-700/50">
           <TabsTrigger value="audio" className="data-[state=active]:bg-blue-600/50">Audio</TabsTrigger>
+          <TabsTrigger value="rfid" className="data-[state=active]:bg-blue-600/50">RFID</TabsTrigger>
           <TabsTrigger value="timer" className="data-[state=active]:bg-blue-600/50">Timer</TabsTrigger>
           <TabsTrigger value="system" className="data-[state=active]:bg-blue-600/50">System</TabsTrigger>
           <TabsTrigger value="network" className="data-[state=active]:bg-blue-600/50">Network</TabsTrigger>
@@ -410,6 +426,105 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
               }
             }}
           />
+        </TabsContent>
+
+        {/* RFID Settings */}
+        <TabsContent value="rfid" className="space-y-6">
+          <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-400">
+                <CreditCard className="w-5 h-5" />
+                RFID Card Behavior
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Label className="text-gray-300 mb-3 block">When Same Card is Tapped Again</Label>
+                <RadioGroup
+                  value={settings.rfidSameCardBehavior}
+                  onValueChange={(value) => updateSetting('rfidSameCardBehavior', value as 'nothing' | 'pause' | 'stop' | 'restart')}
+                  className="space-y-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="nothing" id="nothing" />
+                    <Label htmlFor="nothing" className="text-gray-300">
+                      Do Nothing
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="pause" id="pause" />
+                    <Label htmlFor="pause" className="flex items-center gap-2 text-gray-300">
+                      <Pause className="w-4 h-4" />
+                      Pause/Resume
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="stop" id="stop" />
+                    <Label htmlFor="stop" className="flex items-center gap-2 text-gray-300">
+                      <Square className="w-4 h-4" />
+                      Stop
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="restart" id="restart" />
+                    <Label htmlFor="restart" className="flex items-center gap-2 text-gray-300">
+                      <RefreshCw className="w-4 h-4" />
+                      Restart from Beginning
+                    </Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <Separator className="bg-gray-700/50" />
+
+              <div>
+                <Label className="text-gray-300 mb-3 block">Card Scan Debounce: {settings.rfidCardDebounceMs}ms</Label>
+                <Slider
+                  value={[settings.rfidCardDebounceMs]}
+                  onValueChange={([value]) => updateSetting('rfidCardDebounceMs', value)}
+                  min={100}
+                  max={2000}
+                  step={100}
+                  className="w-full"
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  Minimum time between card scans to prevent duplicate reads
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-gray-300 mb-3 block">Volume Step: {settings.rfidVolumeStep}%</Label>
+                <Slider
+                  value={[settings.rfidVolumeStep]}
+                  onValueChange={([value]) => updateSetting('rfidVolumeStep', value)}
+                  min={5}
+                  max={25}
+                  step={5}
+                  className="w-full"
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  Volume change amount for volume control cards
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-gray-300">Auto-play on Card Scan</Label>
+                  <Switch
+                    checked={settings.rfidAutoPlayOnScan}
+                    onCheckedChange={(checked) => updateSetting('rfidAutoPlayOnScan', checked)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-gray-300">Enable Volume Control Cards</Label>
+                  <Switch
+                    checked={settings.rfidVolumeCards}
+                    onCheckedChange={(checked) => updateSetting('rfidVolumeCards', checked)}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Sleep Timer Settings */}
