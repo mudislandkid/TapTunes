@@ -133,7 +133,7 @@ router.post('/play-track', async (req, res) => {
         if (playbackMode === 'hardware') {
             console.log(`🔊 [AUDIO] Starting hardware playback for: ${track.filePath}`);
             try {
-                await startHardwarePlayback(track.filePath);
+                await startHardwarePlayback(track.filePath, 0); // Start from beginning for new track
                 console.log(`✅ [AUDIO] Hardware playback started successfully`);
             }
             catch (error) {
@@ -219,9 +219,9 @@ router.post('/play', async (req, res) => {
             }
         }
         else {
-            // Start new playback
-            console.log(`▶️ [AUDIO] Starting hardware playback`);
-            await startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+            // Start new playback (or resume from saved position)
+            console.log(`▶️ [AUDIO] Starting hardware playback from position ${currentTime}s`);
+            await startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path, currentTime);
         }
     }
     res.json({ status: 'playing', trackIndex: currentTrackIndex, playbackMode });
@@ -460,7 +460,7 @@ async function setSystemVolume(volume) {
     }
 }
 // Hardware playback function
-async function startHardwarePlayback(filePath) {
+async function startHardwarePlayback(filePath, startPosition = 0) {
     try {
         // Debug the file path
         console.log(`🔍 [AUDIO] Raw filePath received:`, JSON.stringify(filePath));
@@ -482,7 +482,16 @@ async function startHardwarePlayback(filePath) {
             // Try mpg123 first - it's much faster on Raspberry Pi
             try {
                 await execAsync('which mpg123');
-                command = `mpg123 -a hw:0,0 "${cleanFilePath}"`;
+                // Add -k option to seek to frame if resuming
+                if (startPosition > 0) {
+                    // mpg123 uses frames, approximate: 38.28 frames per second for 48kHz
+                    const skipFrames = Math.floor(startPosition * 38.28);
+                    console.log(`⏩ [HARDWARE] Resuming from position ${startPosition}s (skipping ${skipFrames} frames)`);
+                    command = `mpg123 -a hw:0,0 -k ${skipFrames} "${cleanFilePath}"`;
+                }
+                else {
+                    command = `mpg123 -a hw:0,0 "${cleanFilePath}"`;
+                }
             }
             catch {
                 try {
@@ -528,7 +537,19 @@ async function startHardwarePlayback(filePath) {
         }
         else if (command.startsWith('mpg123 ')) {
             cmd = 'mpg123';
-            args = ['-a', 'hw:0,0', cleanFilePath]; // Use WM8960 audio device
+            // Check if we have a -k option for seeking
+            if (command.includes(' -k ')) {
+                const skipMatch = command.match(/-k (\d+)/);
+                if (skipMatch) {
+                    args = ['-a', 'hw:0,0', '-k', skipMatch[1], cleanFilePath];
+                }
+                else {
+                    args = ['-a', 'hw:0,0', cleanFilePath];
+                }
+            }
+            else {
+                args = ['-a', 'hw:0,0', cleanFilePath]; // Use WM8960 audio device
+            }
         }
         else if (command.startsWith('ffplay ')) {
             cmd = 'ffplay';
