@@ -376,12 +376,30 @@ router.post('/card-detected', async (req, res) => {
 
       switch (card.assignment_type) {
         case 'track':
+          console.log(`🎵 [RFID] Track case - assignment_id: ${card.assignment_id}`);
           if (card.assignment_id) {
+            console.log(`📀 [RFID] Looking up track by ID: ${card.assignment_id}`);
             const track = await databaseService.getTrackById(card.assignment_id);
+            console.log(`🔍 [RFID] Track lookup result:`, track ? 'Found' : 'Not found');
             if (track) {
               action = 'play_track';
               data = { track };
-              console.log(`🎵 [RFID] Playing track: ${track.title}`);
+              console.log(`🎵 [RFID] Playing track: ${track.title} - ${track.artist}`);
+              console.log(`🔍 [RFID] Track ID: ${track.id}`);
+              console.log(`📁 [RFID] File path: ${track.file_path}`);
+              
+              // Actually start playback via audio API
+              console.log(`🌐 [RFID] Making HTTP request to play track...`);
+              try {
+                const response = await axios.post('http://localhost:3001/api/audio/play-track', {
+                  trackId: track.id
+                });
+                console.log(`✅ [RFID] Successfully started track playback - Response:`, response.status, response.statusText);
+                console.log(`📤 [RFID] API Response:`, JSON.stringify(response.data, null, 2));
+              } catch (error) {
+                console.error(`❌ [RFID] Failed to start track playback:`, error?.response?.status, error?.response?.statusText);
+                console.error(`❌ [RFID] Error details:`, error?.response?.data || error?.message);
+              }
             }
           }
           break;
