@@ -44,18 +44,31 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const mediaService_1 = require("../services/mediaService");
 const metadataService_1 = require("../services/metadataService");
-// Import music-metadata properly
+// Import music-metadata using require for better Node.js compatibility
 let parseFile;
 async function ensureMusicMetadata() {
     if (!parseFile) {
         try {
-            const mm = await Promise.resolve().then(() => __importStar(require('music-metadata')));
-            parseFile = mm.parseFile || mm.default?.parseFile;
+            // Try CommonJS require first (more reliable in Node.js)
+            const mm = require('music-metadata');
+            parseFile = mm.parseFile;
+            console.log('✅ [METADATA] music-metadata loaded via require');
         }
-        catch (error) {
-            console.error('Failed to load music-metadata:', error);
-            // Fallback: skip metadata parsing
-            parseFile = null;
+        catch (requireError) {
+            console.warn('⚠️ [METADATA] require failed, trying import...', requireError.message);
+            try {
+                // Fallback to dynamic import
+                const mm = await Promise.resolve().then(() => __importStar(require('music-metadata')));
+                parseFile = mm.parseFile || mm.default?.parseFile;
+                console.log('✅ [METADATA] music-metadata loaded via import');
+            }
+            catch (importError) {
+                console.error('❌ [METADATA] Both require and import failed:', {
+                    requireError: requireError.message,
+                    importError: importError.message
+                });
+                parseFile = null;
+            }
         }
     }
 }
@@ -806,6 +819,42 @@ router.delete('/playlists/:id', async (req, res) => {
     catch (error) {
         console.error('Error deleting playlist:', error);
         res.status(500).json({ error: 'Failed to delete playlist' });
+    }
+});
+// Get playlist with tracks
+router.get('/playlists/:id', async (req, res) => {
+    try {
+        const result = await mediaService.getPlaylistWithTracks(req.params.id);
+        if (!result) {
+            return res.status(404).json({ error: 'Playlist not found' });
+        }
+        res.json(result);
+    }
+    catch (error) {
+        console.error('Error fetching playlist:', error);
+        res.status(500).json({ error: 'Failed to fetch playlist' });
+    }
+});
+// Update playlist
+router.put('/playlists/:id', async (req, res) => {
+    try {
+        const { name, description, isPublic, tags } = req.body;
+        // Convert tags array back to JSON string for storage
+        const tagString = Array.isArray(tags) ? JSON.stringify(tags) : tags;
+        const success = await mediaService.updatePlaylist(req.params.id, {
+            name,
+            description,
+            isPublic,
+            tags: tagString
+        });
+        if (!success) {
+            return res.status(404).json({ error: 'Playlist not found' });
+        }
+        res.json({ message: 'Playlist updated successfully' });
+    }
+    catch (error) {
+        console.error('Error updating playlist:', error);
+        res.status(500).json({ error: 'Failed to update playlist' });
     }
 });
 // Stream audio file by track ID

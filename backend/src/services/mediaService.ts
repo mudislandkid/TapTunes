@@ -296,6 +296,17 @@ export class MediaService {
     return await this.db.removeTrackFromPlaylist(playlistId, trackId);
   }
 
+  async updatePlaylist(id: string, updates: { name?: string; description?: string; isPublic?: boolean; tags?: string }): Promise<boolean> {
+    // Convert frontend updates to database format
+    const dbUpdates: any = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.description !== undefined) dbUpdates.description = updates.description;
+    if (updates.isPublic !== undefined) dbUpdates.is_public = updates.isPublic;
+    if (updates.tags !== undefined) dbUpdates.tags = updates.tags;
+    
+    return await this.db.updatePlaylist(id, dbUpdates);
+  }
+
   async deletePlaylist(id: string): Promise<boolean> {
     return await this.db.deletePlaylist(id);
   }

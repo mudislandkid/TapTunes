@@ -44,11 +44,14 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   // Dialog states
   const [isCreateFolderDialogOpen, setIsCreateFolderDialogOpen] = useState(false)
   const [isCreatePlaylistDialogOpen, setIsCreatePlaylistDialogOpen] = useState(false)
+  const [isEditPlaylistDialogOpen, setIsEditPlaylistDialogOpen] = useState(false)
   const [isEditTrackDialogOpen, setIsEditTrackDialogOpen] = useState(false)
   const [isAddToFolderDialogOpen, setIsAddToFolderDialogOpen] = useState(false)
+  const [isAddToPlaylistDialogOpen, setIsAddToPlaylistDialogOpen] = useState(false)
   const [isDeleteTrackDialogOpen, setIsDeleteTrackDialogOpen] = useState(false)
   const [isMetadataDialogOpen, setIsMetadataDialogOpen] = useState(false)
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
+  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null)
   const [dragOver, setDragOver] = useState(false)
   
   // Form states
@@ -59,8 +62,15 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
     isPublic: false,
     tags: ''
   })
+  const [editedPlaylist, setEditedPlaylist] = useState({
+    name: '',
+    description: '',
+    isPublic: false,
+    tags: ''
+  })
   const [editedTrack, setEditedTrack] = useState<Partial<Track>>({})
   const [selectedFolderId, setSelectedFolderId] = useState<string>('')
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>('')
 
   // Fetch library data from API
   const fetchLibraryData = async () => {
@@ -248,6 +258,12 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
     setIsAddToFolderDialogOpen(true)
   }
 
+  const handleAddToPlaylist = (track: Track) => {
+    setSelectedTrack(track)
+    setSelectedPlaylistId('')
+    setIsAddToPlaylistDialogOpen(true)
+  }
+
   const handleDeleteTrack = (track: Track) => {
     setSelectedTrack(track)
     setIsDeleteTrackDialogOpen(true)
@@ -266,6 +282,17 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   const handleEnhanceMetadata = (track: Track) => {
     setSelectedTrack(track)
     setIsMetadataDialogOpen(true)
+  }
+
+  const handleEditPlaylist = (playlist: Playlist) => {
+    setSelectedPlaylist(playlist)
+    setEditedPlaylist({
+      name: playlist.name,
+      description: playlist.description || '',
+      isPublic: playlist.isPublic,
+      tags: playlist.tags ? playlist.tags.join(', ') : ''
+    })
+    setIsEditPlaylistDialogOpen(true)
   }
 
   const updateTrackMetadata = async () => {
@@ -321,6 +348,70 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
       }
     } catch (error) {
       console.error('Error moving track:', error)
+    }
+  }
+
+  const addTrackToPlaylist = async () => {
+    if (!selectedTrack || !selectedPlaylistId) return
+
+    try {
+      const response = await fetch(`${apiBase}/media/playlists/${selectedPlaylistId}/tracks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          trackId: selectedTrack.id
+        })
+      })
+
+      if (response.ok) {
+        setIsAddToPlaylistDialogOpen(false)
+        setSelectedTrack(null)
+        setSelectedPlaylistId('')
+        fetchLibraryData() // Refresh data
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to add track to playlist:', errorData)
+      }
+    } catch (error) {
+      console.error('Error adding track to playlist:', error)
+    }
+  }
+
+  const updatePlaylistMetadata = async () => {
+    if (!selectedPlaylist) return
+
+    try {
+      const response = await fetch(`${apiBase}/media/playlists/${selectedPlaylist.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: editedPlaylist.name,
+          description: editedPlaylist.description,
+          isPublic: editedPlaylist.isPublic,
+          tags: editedPlaylist.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
+        })
+      })
+
+      if (response.ok) {
+        setIsEditPlaylistDialogOpen(false)
+        setSelectedPlaylist(null)
+        setEditedPlaylist({
+          name: '',
+          description: '',
+          isPublic: false,
+          tags: ''
+        })
+        fetchLibraryData() // Refresh data
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to update playlist:', errorData)
+      }
+    } catch (error) {
+      console.error('Error updating playlist:', error)
     }
   }
 
@@ -643,6 +734,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                     onEnhanceMetadata={handleEnhanceMetadata}
                     onEditTrack={handleEditTrack}
                     onAddToFolder={handleAddToFolder}
+                    onAddToPlaylist={handleAddToPlaylist}
                     onDeleteTrack={handleDeleteTrack}
                     onDownloadTrack={handleDownloadTrack}
                   />
@@ -665,6 +757,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                 <PlaylistView 
                   playlists={playlists}
                   onPlayPlaylist={onPlayPlaylist}
+                  onEditPlaylist={handleEditPlaylist}
                   onDeletePlaylist={deletePlaylist}
                   formatDuration={formatDuration}
                 />
@@ -807,6 +900,125 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                 className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
               >
                 Move Track
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add to Playlist Dialog */}
+      <Dialog open={isAddToPlaylistDialogOpen} onOpenChange={setIsAddToPlaylistDialogOpen}>
+        <DialogContent className="glass-card border-slate-700/50">
+          <DialogHeader>
+            <DialogTitle className="text-slate-100">Add to Playlist</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="selectPlaylist">Select Playlist</Label>
+              <Select value={selectedPlaylistId} onValueChange={setSelectedPlaylistId}>
+                <SelectTrigger className="glass-card border-slate-600/50">
+                  <SelectValue placeholder="Choose a playlist..." />
+                </SelectTrigger>
+                <SelectContent className="glass-card border-slate-700/50 bg-slate-800/95">
+                  {playlists.map((playlist) => (
+                    <SelectItem key={playlist.id} value={playlist.id}>
+                      {playlist.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsAddToPlaylistDialogOpen(false)
+                  setSelectedTrack(null)
+                  setSelectedPlaylistId('')
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={addTrackToPlaylist}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                Add to Playlist
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Playlist Dialog */}
+      <Dialog open={isEditPlaylistDialogOpen} onOpenChange={setIsEditPlaylistDialogOpen}>
+        <DialogContent className="glass-card border-slate-700/50">
+          <DialogHeader>
+            <DialogTitle className="text-slate-100">Edit Playlist</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="playlistName">Playlist Name</Label>
+              <Input
+                id="playlistName"
+                value={editedPlaylist.name}
+                onChange={(e) => setEditedPlaylist({ ...editedPlaylist, name: e.target.value })}
+                placeholder="My Awesome Playlist"
+                className="glass-card border-slate-600/50"
+              />
+            </div>
+            <div>
+              <Label htmlFor="playlistDescription">Description (optional)</Label>
+              <Textarea
+                id="playlistDescription"
+                value={editedPlaylist.description}
+                onChange={(e) => setEditedPlaylist({ ...editedPlaylist, description: e.target.value })}
+                placeholder="A collection of my favorite songs..."
+                className="glass-card border-slate-600/50 resize-none"
+                rows={3}
+              />
+            </div>
+            <div>
+              <Label htmlFor="playlistTags">Tags (comma-separated)</Label>
+              <Input
+                id="playlistTags"
+                value={editedPlaylist.tags}
+                onChange={(e) => setEditedPlaylist({ ...editedPlaylist, tags: e.target.value })}
+                placeholder="rock, indie, favorites"
+                className="glass-card border-slate-600/50"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isPublic"
+                checked={editedPlaylist.isPublic}
+                onChange={(e) => setEditedPlaylist({ ...editedPlaylist, isPublic: e.target.checked })}
+                className="rounded border-slate-600"
+              />
+              <Label htmlFor="isPublic">Make this playlist public</Label>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditPlaylistDialogOpen(false)
+                  setSelectedPlaylist(null)
+                  setEditedPlaylist({
+                    name: '',
+                    description: '',
+                    isPublic: false,
+                    tags: ''
+                  })
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={updatePlaylistMetadata}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                Save Changes
               </Button>
             </div>
           </div>

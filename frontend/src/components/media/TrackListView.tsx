@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { motion } from 'framer-motion'
-import { Music, Heart, Play, MoreHorizontal, Edit, FolderPlus, Trash2, Download, Sparkles } from 'lucide-react'
+import { Music, Heart, Play, MoreHorizontal, Edit, FolderPlus, Trash2, Download, Sparkles, ListMusic } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -24,6 +24,7 @@ interface TrackListViewProps {
   formatDuration: (seconds: number) => string
   onEditTrack?: (track: Track) => void
   onAddToFolder?: (track: Track) => void
+  onAddToPlaylist?: (track: Track) => void
   onDeleteTrack?: (track: Track) => void
   onDownloadTrack?: (track: Track) => void
   onEnhanceMetadata?: (track: Track) => void
@@ -35,6 +36,7 @@ export const TrackListView = memo(function TrackListView({
   formatDuration,
   onEditTrack,
   onAddToFolder,
+  onAddToPlaylist,
   onDeleteTrack,
   onDownloadTrack,
   onEnhanceMetadata
@@ -169,6 +171,18 @@ export const TrackListView = memo(function TrackListView({
                           Add to Folder
                         </DropdownMenuItem>
                       )}
+                      {onAddToPlaylist && (
+                        <DropdownMenuItem 
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            onAddToPlaylist(track);
+                          }}
+                          className="text-slate-200 hover:bg-slate-700/50 focus:bg-slate-700/50"
+                        >
+                          <ListMusic className="w-4 h-4 mr-2" />
+                          Add to Playlist
+                        </DropdownMenuItem>
+                      )}
                       {onDownloadTrack && (
                         <DropdownMenuItem 
                           onClick={(e: React.MouseEvent) => {
@@ -181,7 +195,7 @@ export const TrackListView = memo(function TrackListView({
                           Download
                         </DropdownMenuItem>
                       )}
-                      {(onEditTrack || onAddToFolder || onDownloadTrack) && onDeleteTrack && (
+                      {(onEditTrack || onAddToFolder || onAddToPlaylist || onDownloadTrack) && onDeleteTrack && (
                         <DropdownMenuSeparator className="bg-slate-600/50" />
                       )}
                       {onDeleteTrack && (

@@ -876,6 +876,46 @@ router.delete('/playlists/:id', async (req, res) => {
   }
 });
 
+// Get playlist with tracks
+router.get('/playlists/:id', async (req, res) => {
+  try {
+    const result = await mediaService.getPlaylistWithTracks(req.params.id);
+    if (!result) {
+      return res.status(404).json({ error: 'Playlist not found' });
+    }
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching playlist:', error);
+    res.status(500).json({ error: 'Failed to fetch playlist' });
+  }
+});
+
+// Update playlist
+router.put('/playlists/:id', async (req, res) => {
+  try {
+    const { name, description, isPublic, tags } = req.body;
+    
+    // Convert tags array back to JSON string for storage
+    const tagString = Array.isArray(tags) ? JSON.stringify(tags) : tags;
+    
+    const success = await mediaService.updatePlaylist(req.params.id, {
+      name,
+      description, 
+      isPublic,
+      tags: tagString
+    });
+    
+    if (!success) {
+      return res.status(404).json({ error: 'Playlist not found' });
+    }
+    
+    res.json({ message: 'Playlist updated successfully' });
+  } catch (error) {
+    console.error('Error updating playlist:', error);
+    res.status(500).json({ error: 'Failed to update playlist' });
+  }
+});
+
 // Stream audio file by track ID
 router.get('/stream/:trackId', async (req, res) => {
   try {

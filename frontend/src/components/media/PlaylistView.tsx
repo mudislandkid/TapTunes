@@ -15,6 +15,7 @@ import {
 interface PlaylistViewProps {
   playlists: Playlist[]
   onPlayPlaylist?: (playlist: Track[]) => void
+  onEditPlaylist?: (playlist: Playlist) => void
   onDeletePlaylist: (playlistId: string) => void
   formatDuration: (seconds: number) => string
 }
@@ -22,6 +23,7 @@ interface PlaylistViewProps {
 export const PlaylistView = memo(function PlaylistView({
   playlists,
   onPlayPlaylist,
+  onEditPlaylist,
   onDeletePlaylist,
   formatDuration
 }: PlaylistViewProps) {
@@ -119,6 +121,7 @@ export const PlaylistView = memo(function PlaylistView({
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => onEditPlaylist?.(playlist)}
                     className="glass-card border-slate-600/50"
                   >
                     <Edit3 className="w-3 h-3" />

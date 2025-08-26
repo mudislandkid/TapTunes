@@ -195,6 +195,19 @@ class MediaService {
     async removeTrackFromPlaylist(playlistId, trackId) {
         return await this.db.removeTrackFromPlaylist(playlistId, trackId);
     }
+    async updatePlaylist(id, updates) {
+        // Convert frontend updates to database format
+        const dbUpdates = {};
+        if (updates.name !== undefined)
+            dbUpdates.name = updates.name;
+        if (updates.description !== undefined)
+            dbUpdates.description = updates.description;
+        if (updates.isPublic !== undefined)
+            dbUpdates.is_public = updates.isPublic;
+        if (updates.tags !== undefined)
+            dbUpdates.tags = updates.tags;
+        return await this.db.updatePlaylist(id, dbUpdates);
+    }
     async deletePlaylist(id) {
         return await this.db.deletePlaylist(id);
     }

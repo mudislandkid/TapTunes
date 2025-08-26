@@ -435,6 +435,26 @@ class DatabaseService {
             return false;
         }
     }
+    async updatePlaylist(id, updates) {
+        const updateFields = [];
+        const updateValues = [];
+        // Build dynamic update query
+        for (const [key, value] of Object.entries(updates)) {
+            if (value !== undefined && key !== 'id' && key !== 'created_at') {
+                updateFields.push(`${key} = ?`);
+                updateValues.push(value);
+            }
+        }
+        if (updateFields.length === 0)
+            return true; // No updates needed
+        // Add updated_at timestamp
+        updateFields.push('updated_at = ?');
+        updateValues.push(new Date().toISOString());
+        updateValues.push(id); // Add id for WHERE clause
+        const sql = `UPDATE playlists SET ${updateFields.join(', ')} WHERE id = ?`;
+        const result = await this.runQuery(sql, updateValues);
+        return result.changes > 0;
+    }
     async deletePlaylist(id) {
         const result = await this.runQuery('DELETE FROM playlists WHERE id = ?', [id]);
         return result.changes > 0;
