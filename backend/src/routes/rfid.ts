@@ -178,6 +178,7 @@ router.post('/scan', async (req, res) => {
         break;
 
       case 'playlist':
+        console.log(`📝 [RFID] Playlist case triggered - assignment_id: ${card.assignment_id}`);
         if (card.assignment_id) {
           console.log(`📝 [RFID] Looking up playlist by ID: ${card.assignment_id}`);
           const playlistData = await databaseService.getPlaylistWithTracks(card.assignment_id);
@@ -421,6 +422,8 @@ router.post('/card-detected', async (req, res) => {
       let action = null;
       let data = null;
 
+      console.log(`🎯 [RFID] Processing assignment type: '${card.assignment_type}'`);
+      
       switch (card.assignment_type) {
         case 'track':
           console.log(`🎵 [RFID] Track case - assignment_id: ${card.assignment_id}`);
