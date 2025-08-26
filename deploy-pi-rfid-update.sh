@@ -85,24 +85,35 @@ sudo pip3 install mfrc522 requests --break-system-packages || {
     sudo pip3 install mfrc522 --break-system-packages || print_warning "mfrc522 installation may have failed"
 }
 
-# Install mpv for better audio playback with pause/resume support
-print_status "Installing mpv for improved audio playback..."
-if ! command -v mpv &> /dev/null; then
+# Install audio players for hardware playback
+print_status "Installing audio players for hardware playback..."
+
+# Install mpg123 (faster startup on Pi)
+if ! command -v mpg123 &> /dev/null; then
     sudo apt update -qq
+    sudo apt install -y mpg123
+    print_status "✅ mpg123 installed successfully (fast startup)"
+else
+    print_status "✅ mpg123 already installed"
+fi
+
+# Install mpv as backup (better pause/resume but slower)
+if ! command -v mpv &> /dev/null; then
     sudo apt install -y mpv
-    print_status "✅ mpv installed successfully"
+    print_status "✅ mpv installed successfully (backup player)"
 else
     print_status "✅ mpv already installed"
 fi
 
 # Verify audio players are available
 print_status "Verifying audio players..."
-if command -v mpv &> /dev/null; then
-    print_status "✅ mpv available (preferred for pause/resume)"
-elif command -v mpg123 &> /dev/null; then
-    print_warning "⚠️ Only mpg123 available (limited pause/resume support)"
+if command -v mpg123 &> /dev/null; then
+    print_status "✅ mpg123 available (preferred for fast startup)"
+    if command -v mpv &> /dev/null; then
+        print_status "✅ mpv available as backup"
+    fi
 else
-    print_error "❌ No suitable audio player found (mpv or mpg123 required)"
+    print_error "❌ No suitable audio player found (mpg123 or mpv required)"
 fi
 
 # Enable I2C and SPI if not already enabled
@@ -340,7 +351,8 @@ echo "  • Hardware mode as default playback"
 echo "  • Volume control fixes for WM8960"
 echo "  • Card assignment to tracks/playlists/albums/artists"
 echo "  • RFID card behavior settings (pause/resume, stop, restart, nothing)"
-echo "  • mpv audio player for better pause/resume support"
+echo "  • Optimized audio playback with mpg123 for fast startup"
+echo "  • Automatic duration detection from audio files"
 echo ""
 if [ -n "$PI_IP" ]; then
     echo "Access your TapTunes interface at: http://$PI_IP"

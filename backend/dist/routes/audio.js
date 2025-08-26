@@ -208,22 +208,14 @@ router.post('/play', async (req, res) => {
     // Start/resume hardware playback if in hardware mode and we have a current track
     if (playbackMode === 'hardware' && currentPlaylist?.tracks[currentTrackIndex]) {
         if (hardwareProcess) {
-            // Resume existing process
+            // Resume existing process (mpv only)
             try {
-                if (hardwareProcess.stdin && hardwareProcess.stdin.writable) {
-                    console.log(`▶️ [AUDIO] Resuming mpv playback via stdin (space key)`);
-                    hardwareProcess.stdin.write(' '); // Space toggles pause in mpv
-                }
-                else {
-                    console.log(`▶️ [AUDIO] Resuming hardware playback (SIGCONT)`);
-                    hardwareProcess.kill('SIGCONT'); // Resume the paused process
-                }
+                console.log(`▶️ [AUDIO] Resuming mpv playback via stdin`);
+                hardwareProcess.stdin.write(' '); // Space toggles pause in mpv
             }
             catch (error) {
-                console.error('Error resuming hardware playback:', error);
-                // If resume fails, start new playback
-                console.log(`▶️ [AUDIO] Starting new hardware playback`);
-                await startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+                console.error('Error resuming mpv playback:', error);
+                hardwareProcess = null;
             }
         }
         else {
@@ -239,16 +231,22 @@ router.post('/pause', (req, res) => {
     // Pause hardware playback if in hardware mode
     if (playbackMode === 'hardware' && hardwareProcess) {
         try {
-            // Check if we're using mpv (which supports proper pause via stdin)
-            if (hardwareProcess.stdin && hardwareProcess.stdin.writable) {
-                console.log(`⏸️ [AUDIO] Pausing mpv playback via stdin (space key)`);
+            // For mpg123, we need to stop and remember position
+            // For mpv, we can use stdin
+            const isUsingMpv = hardwareProcess.stdin && hardwareProcess.stdin.writable;
+            if (isUsingMpv) {
+                console.log(`⏸️ [AUDIO] Pausing mpv playback via stdin`);
                 hardwareProcess.stdin.write(' '); // Space toggles pause in mpv
             }
             else {
-                console.log(`⏸️ [AUDIO] Pausing hardware playback (SIGSTOP)`);
-                hardwareProcess.kill('SIGSTOP'); // Fallback for other players
+                // For mpg123 - just kill it, we'll restart from saved position
+                console.log(`⏸️ [AUDIO] Stopping mpg123 for pause`);
+                const elapsed = (Date.now() - playbackStartTime) / 1000;
+                currentTime = Math.min(currentTime + elapsed, duration);
+                console.log(`💾 [AUDIO] Saved position: ${currentTime}s / ${duration}s`);
+                hardwareProcess.kill();
+                hardwareProcess = null;
             }
-            // Keep hardwareProcess reference so we can resume it
         }
         catch (error) {
             console.error('Error pausing hardware playback:', error);
@@ -481,16 +479,16 @@ async function startHardwarePlayback(filePath) {
         if (process.platform === 'linux') {
             // For Raspberry Pi / Linux, try different audio players
             // Check if mpv is available (best for pause/resume)
+            // Try mpg123 first - it's much faster on Raspberry Pi
             try {
-                await execAsync('which mpv');
-                // Use mpv with optimizations for faster startup
-                command = `mpv --no-video --audio-buffer=0.1 --cache=yes --cache-secs=2 --really-quiet --volume=100 "${cleanFilePath}"`;
+                await execAsync('which mpg123');
+                command = `mpg123 -a hw:0,0 "${cleanFilePath}"`;
             }
             catch {
                 try {
-                    // Fallback to mpg123
-                    await execAsync('which mpg123');
-                    command = `mpg123 -a hw:0,0 "${cleanFilePath}"`;
+                    // Fallback to mpv if mpg123 not available
+                    await execAsync('which mpv');
+                    command = `mpv --no-video --ao=alsa --really-quiet --volume=100 "${cleanFilePath}"`;
                 }
                 catch {
                     try {
@@ -556,12 +554,26 @@ async function startHardwarePlayback(filePath) {
             detached: false
         });
         console.log(`✨ [HARDWARE] Spawn process created with PID:`, hardwareProcess.pid);
+        // Don't set isPlaying until audio actually starts
+        let audioStarted = false;
         // Capture stderr for debugging
         hardwareProcess.stderr?.on('data', (data) => {
             const output = data.toString().trim();
             // Only log non-empty, non-binary output
             if (output && !output.includes('[') && output.length < 200) {
                 console.log(`🔍 [HARDWARE] stderr: ${output}`);
+            }
+            // Try to extract duration from player output
+            // mpg123 format: "Frame#   NNN [ NNNN], Time: MM:SS.SS [MM:SS.SS]"
+            let mpg123Match = output.match(/Time:\s*\d+:\d+\.\d+\s*\[(\d+):(\d+)\.\d+\]/);
+            if (mpg123Match) {
+                const minutes = parseInt(mpg123Match[1]) || 0;
+                const seconds = parseInt(mpg123Match[2]) || 0;
+                const totalSeconds = minutes * 60 + seconds;
+                if (totalSeconds > 0 && totalSeconds !== duration) {
+                    console.log(`⏱️ [HARDWARE] Detected duration from mpg123: ${totalSeconds} seconds`);
+                    duration = totalSeconds;
+                }
             }
             // Try to extract duration from mpv output (different possible formats)
             // Format 1: "Duration: HH:MM:SS.MS"
@@ -591,6 +603,12 @@ async function startHardwarePlayback(filePath) {
             // Only log meaningful output, skip progress bars and binary data
             if (output && !output.includes('[') && !output.includes('blob data') && output.length < 200) {
                 console.log(`🔍 [HARDWARE] stdout: ${output}`);
+            }
+            // Detect when audio actually starts
+            if (!audioStarted && (output.includes('Playing') || output.includes('Audio') || output.includes('Frame#'))) {
+                audioStarted = true;
+                playbackStartTime = Date.now();
+                console.log(`🎶 [HARDWARE] Audio playback actually started`);
             }
             // Also check stdout for duration info (same patterns as stderr)
             // Also look for mpv's duration format like "Audio: 48000Hz 2ch s16p 252.720s"
