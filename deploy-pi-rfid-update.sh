@@ -85,6 +85,26 @@ sudo pip3 install mfrc522 requests --break-system-packages || {
     sudo pip3 install mfrc522 --break-system-packages || print_warning "mfrc522 installation may have failed"
 }
 
+# Install mpv for better audio playback with pause/resume support
+print_status "Installing mpv for improved audio playback..."
+if ! command -v mpv &> /dev/null; then
+    sudo apt update -qq
+    sudo apt install -y mpv
+    print_status "✅ mpv installed successfully"
+else
+    print_status "✅ mpv already installed"
+fi
+
+# Verify audio players are available
+print_status "Verifying audio players..."
+if command -v mpv &> /dev/null; then
+    print_status "✅ mpv available (preferred for pause/resume)"
+elif command -v mpg123 &> /dev/null; then
+    print_warning "⚠️ Only mpg123 available (limited pause/resume support)"
+else
+    print_error "❌ No suitable audio player found (mpv or mpg123 required)"
+fi
+
 # Enable I2C and SPI if not already enabled
 print_status "Ensuring I2C and SPI are enabled..."
 if ! grep -q "dtparam=i2c=on" /boot/config.txt; then
@@ -319,6 +339,8 @@ echo "  • RFID card reading and assignment"
 echo "  • Hardware mode as default playback"
 echo "  • Volume control fixes for WM8960"
 echo "  • Card assignment to tracks/playlists/albums/artists"
+echo "  • RFID card behavior settings (pause/resume, stop, restart, nothing)"
+echo "  • mpv audio player for better pause/resume support"
 echo ""
 if [ -n "$PI_IP" ]; then
     echo "Access your TapTunes interface at: http://$PI_IP"

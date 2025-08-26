@@ -532,22 +532,22 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
     
     if (process.platform === 'linux') {
       // For Raspberry Pi / Linux, try different audio players
-      // Check if mpg123 is available (good for Raspberry Pi)
+      // Check if mpv is available (best for pause/resume)
       try {
-        await execAsync('which mpg123');
-        command = `mpg123 -a hw:0,0 "${cleanFilePath}"`;
+        await execAsync('which mpv');
+        command = `mpv --no-video --audio-device=alsa/hw:0,0 "${cleanFilePath}"`;
       } catch {
         try {
-          // Fallback to aplay for WAV files or ffplay
-          await execAsync('which ffplay');
-          command = `ffplay -nodisp -autoexit "${cleanFilePath}"`;
+          // Fallback to mpg123
+          await execAsync('which mpg123');
+          command = `mpg123 -a hw:0,0 "${cleanFilePath}"`;
         } catch {
           try {
-            // Fallback to paplay (PulseAudio)
-            await execAsync('which paplay');
-            command = `paplay "${cleanFilePath}"`;
+            // Fallback to ffplay
+            await execAsync('which ffplay');
+            command = `ffplay -nodisp -autoexit "${cleanFilePath}"`;
           } catch {
-            throw new Error('No suitable audio player found');
+            throw new Error('No suitable audio player found (tried mpv, mpg123, ffplay)');
           }
         }
       }
@@ -573,7 +573,10 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
     
     console.log(`🛠️ [HARDWARE] Building spawn arguments...`);
     
-    if (command.startsWith('mpg123 ')) {
+    if (command.startsWith('mpv ')) {
+      cmd = 'mpv';
+      args = ['--no-video', '--audio-device=alsa/hw:0,0', cleanFilePath];
+    } else if (command.startsWith('mpg123 ')) {
       cmd = 'mpg123';
       args = ['-a', 'hw:0,0', cleanFilePath]; // Use WM8960 audio device
     } else if (command.startsWith('ffplay ')) {
