@@ -179,31 +179,43 @@ router.post('/scan', async (req, res) => {
 
       case 'playlist':
         if (card.assignment_id) {
+          console.log(`📝 [RFID] Looking up playlist by ID: ${card.assignment_id}`);
           const playlistData = await databaseService.getPlaylistWithTracks(card.assignment_id);
+          console.log(`📝 [RFID] Playlist data:`, playlistData);
+          
           if (playlistData && playlistData.tracks.length > 0) {
             action = 'play_playlist';
             data = { playlist: playlistData.playlist, tracks: playlistData.tracks };
-            console.log(`📝 [RFID] Playing playlist: ${playlistData.playlist.name}`);
+            console.log(`📝 [RFID] Playing playlist: ${playlistData.playlist.name} with ${playlistData.tracks.length} tracks`);
             
             // Start playlist playback
             try {
-              await axios.post('http://localhost:3001/api/audio/play-playlist', {
-                tracks: playlistData.tracks.map(t => ({
-                  id: t.id,
-                  title: t.title,
-                  artist: t.artist,
-                  album: t.album,
-                  duration: t.duration,
-                  filePath: t.file_path
-                })),
+              const playlistTracks = playlistData.tracks.map(t => ({
+                id: t.id,
+                title: t.title,
+                artist: t.artist,
+                album: t.album,
+                duration: t.duration,
+                filePath: t.file_path
+              }));
+              
+              console.log(`📝 [RFID] Sending playlist tracks to audio API:`, playlistTracks);
+              
+              const response = await axios.post('http://localhost:3001/api/audio/play-playlist', {
+                tracks: playlistTracks,
                 startIndex: 0
               });
+              
               playbackStarted = true;
-              console.log(`✅ [RFID] Successfully started playlist playback`);
+              console.log(`✅ [RFID] Successfully started playlist playback - Response:`, response.status, response.statusText);
             } catch (error) {
-              console.error(`❌ [RFID] Failed to start playlist playback:`, error);
+              console.error(`❌ [RFID] Failed to start playlist playback:`, error.response?.data || error.message);
             }
+          } else {
+            console.log(`⚠️ [RFID] Playlist not found or has no tracks`);
           }
+        } else {
+          console.log(`⚠️ [RFID] No assignment_id for playlist card`);
         }
         break;
 
