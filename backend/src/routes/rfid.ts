@@ -329,7 +329,7 @@ router.post('/scan', async (req, res) => {
       default:
         console.log(`⚠️ [RFID] Unknown assignment type: ${card.assignment_type}`);
         break;
-    }
+      }
 
     console.log(`📋 [RFID] Processing completed - Action: ${action}, Playback started: ${playbackStarted}`);
 
