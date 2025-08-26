@@ -208,10 +208,16 @@ router.post('/play', async (req, res) => {
     // Start/resume hardware playback if in hardware mode and we have a current track
     if (playbackMode === 'hardware' && currentPlaylist?.tracks[currentTrackIndex]) {
         if (hardwareProcess) {
-            // Resume existing process with SIGCONT
+            // Resume existing process
             try {
-                console.log(`▶️ [AUDIO] Resuming hardware playback (SIGCONT)`);
-                hardwareProcess.kill('SIGCONT'); // Resume the paused process
+                if (hardwareProcess.stdin && hardwareProcess.stdin.writable) {
+                    console.log(`▶️ [AUDIO] Resuming mpv playback via stdin`);
+                    hardwareProcess.stdin.write('p'); // 'p' toggles pause in mpv
+                }
+                else {
+                    console.log(`▶️ [AUDIO] Resuming hardware playback (SIGCONT)`);
+                    hardwareProcess.kill('SIGCONT'); // Resume the paused process
+                }
             }
             catch (error) {
                 console.error('Error resuming hardware playback:', error);
@@ -230,11 +236,18 @@ router.post('/play', async (req, res) => {
 });
 router.post('/pause', (req, res) => {
     isPlaying = false;
-    // Pause hardware playback if in hardware mode using SIGSTOP
+    // Pause hardware playback if in hardware mode
     if (playbackMode === 'hardware' && hardwareProcess) {
         try {
-            console.log(`⏸️ [AUDIO] Pausing hardware playback (SIGSTOP)`);
-            hardwareProcess.kill('SIGSTOP'); // Pause the process
+            // Check if we're using mpv (which supports proper pause via stdin)
+            if (hardwareProcess.stdin && hardwareProcess.stdin.writable) {
+                console.log(`⏸️ [AUDIO] Pausing mpv playback via stdin`);
+                hardwareProcess.stdin.write('p'); // 'p' toggles pause in mpv
+            }
+            else {
+                console.log(`⏸️ [AUDIO] Pausing hardware playback (SIGSTOP)`);
+                hardwareProcess.kill('SIGSTOP'); // Fallback for other players
+            }
             // Keep hardwareProcess reference so we can resume it
         }
         catch (error) {
@@ -470,7 +483,8 @@ async function startHardwarePlayback(filePath) {
             // Check if mpv is available (best for pause/resume)
             try {
                 await execAsync('which mpv');
-                command = `mpv --no-video --ao=alsa --audio-device=hw:0,0 --volume=100 "${cleanFilePath}"`;
+                // Use mpv with terminal output to get duration info
+                command = `mpv --no-video --term-osd-bar --term-osd-bar-chars="[=>-]" --volume=100 "${cleanFilePath}"`;
             }
             catch {
                 try {
@@ -511,7 +525,8 @@ async function startHardwarePlayback(filePath) {
         console.log(`🛠️ [HARDWARE] Building spawn arguments...`);
         if (command.startsWith('mpv ')) {
             cmd = 'mpv';
-            args = ['--no-video', '--ao=alsa', '--audio-device=hw:0,0', '--volume=100', cleanFilePath];
+            // Add terminal output options to get duration and progress
+            args = ['--no-video', '--term-osd-bar', '--term-osd-bar-chars=[=>-]', '--volume=100', '--input-terminal=yes', cleanFilePath];
         }
         else if (command.startsWith('mpg123 ')) {
             cmd = 'mpg123';
@@ -537,17 +552,58 @@ async function startHardwarePlayback(filePath) {
         }
         console.log(`🚀 [HARDWARE] Executing: ${cmd} with args:`, JSON.stringify(args));
         hardwareProcess = spawn(cmd, args, {
-            stdio: ['ignore', 'pipe', 'pipe'], // capture stdout and stderr
+            stdio: cmd === 'mpv' ? ['pipe', 'pipe', 'pipe'] : ['ignore', 'pipe', 'pipe'], // pipe stdin for mpv control
             detached: false
         });
         console.log(`✨ [HARDWARE] Spawn process created with PID:`, hardwareProcess.pid);
         // Capture stderr for debugging
         hardwareProcess.stderr?.on('data', (data) => {
-            console.log(`🔍 [HARDWARE] stderr: ${data.toString().trim()}`);
+            const output = data.toString().trim();
+            console.log(`🔍 [HARDWARE] stderr: ${output}`);
+            // Try to extract duration from mpv output (different possible formats)
+            // Format 1: "Duration: HH:MM:SS.MS"
+            let durationMatch = output.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
+            if (!durationMatch) {
+                // Format 2: "(+NNNs)" or "/ MM:SS" or "/ HH:MM:SS"
+                durationMatch = output.match(/\/\s*(\d+):(\d+):(\d+)/);
+            }
+            if (!durationMatch) {
+                // Format 3: mpv style "AV: 00:00:00 / 00:03:54"
+                durationMatch = output.match(/\/\s*(\d{2}):(\d{2}):(\d{2})/);
+            }
+            if (durationMatch) {
+                const hours = parseInt(durationMatch[1]) || 0;
+                const minutes = parseInt(durationMatch[2]) || 0;
+                const seconds = parseFloat(durationMatch[3]) || 0;
+                const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+                if (totalSeconds > 0 && totalSeconds !== duration) {
+                    console.log(`⏱️ [HARDWARE] Detected duration: ${totalSeconds} seconds`);
+                    duration = totalSeconds;
+                }
+            }
         });
         // Capture stdout for debugging
         hardwareProcess.stdout?.on('data', (data) => {
-            console.log(`🔍 [HARDWARE] stdout: ${data.toString().trim()}`);
+            const output = data.toString().trim();
+            console.log(`🔍 [HARDWARE] stdout: ${output}`);
+            // Also check stdout for duration info (same patterns as stderr)
+            let durationMatch = output.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
+            if (!durationMatch) {
+                durationMatch = output.match(/\/\s*(\d+):(\d+):(\d+)/);
+            }
+            if (!durationMatch) {
+                durationMatch = output.match(/\/\s*(\d{2}):(\d{2}):(\d{2})/);
+            }
+            if (durationMatch) {
+                const hours = parseInt(durationMatch[1]) || 0;
+                const minutes = parseInt(durationMatch[2]) || 0;
+                const seconds = parseFloat(durationMatch[3]) || 0;
+                const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+                if (totalSeconds > 0 && totalSeconds !== duration) {
+                    console.log(`⏱️ [HARDWARE] Detected duration: ${totalSeconds} seconds`);
+                    duration = totalSeconds;
+                }
+            }
         });
         hardwareProcess.on('error', (error) => {
             console.error('❌ [HARDWARE] Hardware playback error:', error);
