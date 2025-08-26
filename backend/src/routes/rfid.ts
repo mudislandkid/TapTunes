@@ -403,12 +403,16 @@ router.post('/card-detected', async (req, res) => {
       // No pending read, process as normal scan
       console.log(`🎫 [RFID] Card scanned (no pending read): ${cardId}`);
       
+      console.log(`🔍 [RFID] Looking up card ID: ${cardId}`);
       const card = await databaseService.getRFIDCardByCardId(cardId);
+      console.log(`🔍 [RFID] Card lookup result:`, card);
       
       if (!card) {
         console.log(`❌ [RFID] Unknown card: ${cardId}`);
         return res.status(404).json({ error: 'Card not registered', cardId });
       }
+      
+      console.log(`📋 [RFID] Card details - Name: ${card.name}, Type: ${card.assignment_type}, Assignment: ${card.assignment_id}`);
       
       // Process the card scan (same logic as /scan endpoint)
       await databaseService.updateRFIDCardUsage(card.id);
