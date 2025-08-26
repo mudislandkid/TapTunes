@@ -94,14 +94,26 @@ router.post('/scan', async (req, res) => {
         }
         // Update card usage
         await databaseService.updateRFIDCardUsage(card.id);
+        console.log(`🔍 [RFID] Card details:`, {
+            id: card.id,
+            card_id: card.card_id,
+            name: card.name,
+            assignment_type: card.assignment_type,
+            assignment_id: card.assignment_id,
+            action: card.action
+        });
         // Handle different assignment types
         let action = null;
         let data = null;
         let playbackStarted = false;
+        console.log(`🎯 [RFID] Processing assignment type: ${card.assignment_type}`);
         switch (card.assignment_type) {
             case 'track':
+                console.log(`🎵 [RFID] Track case - assignment_id: ${card.assignment_id}`);
                 if (card.assignment_id) {
+                    console.log(`📀 [RFID] Looking up track by ID: ${card.assignment_id}`);
                     const track = await databaseService.getTrackById(card.assignment_id);
+                    console.log(`🔍 [RFID] Track lookup result:`, track ? 'Found' : 'Not found');
                     if (track) {
                         action = 'play_track';
                         data = { track };
@@ -264,6 +276,7 @@ router.post('/scan', async (req, res) => {
                 console.log(`⚠️ [RFID] Unknown assignment type: ${card.assignment_type}`);
                 break;
         }
+        console.log(`📋 [RFID] Processing completed - Action: ${action}, Playback started: ${playbackStarted}`);
         res.json({
             card,
             action,
