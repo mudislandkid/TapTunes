@@ -249,10 +249,22 @@ router.post('/play', async (req, res) => {
 
   // Start/resume hardware playback if in hardware mode and we have a current track
   if (playbackMode === 'hardware' && currentPlaylist?.tracks[currentTrackIndex]) {
-    // For now, always restart playback instead of trying to resume
-    // This is more reliable than SIGSTOP/SIGCONT which may not work with all audio players
-    console.log(`▶️ [AUDIO] Starting hardware playback`);
-    await startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+    if (hardwareProcess) {
+      // Resume existing process with SIGCONT
+      try {
+        console.log(`▶️ [AUDIO] Resuming hardware playback (SIGCONT)`);
+        hardwareProcess.kill('SIGCONT'); // Resume the paused process
+      } catch (error) {
+        console.error('Error resuming hardware playback:', error);
+        // If resume fails, start new playback
+        console.log(`▶️ [AUDIO] Starting new hardware playback`);
+        await startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+      }
+    } else {
+      // Start new playback
+      console.log(`▶️ [AUDIO] Starting hardware playback`);
+      await startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+    }
   }
 
   res.json({ status: 'playing', trackIndex: currentTrackIndex, playbackMode });
@@ -261,14 +273,14 @@ router.post('/play', async (req, res) => {
 router.post('/pause', (req, res) => {
   isPlaying = false;
   
-  // Stop hardware playback if in hardware mode (we'll restart on play)
+  // Pause hardware playback if in hardware mode using SIGSTOP
   if (playbackMode === 'hardware' && hardwareProcess) {
     try {
-      console.log(`⏸️ [AUDIO] Stopping hardware playback for pause`);
-      hardwareProcess.kill();
-      hardwareProcess = null;
+      console.log(`⏸️ [AUDIO] Pausing hardware playback (SIGSTOP)`);
+      hardwareProcess.kill('SIGSTOP'); // Pause the process
+      // Keep hardwareProcess reference so we can resume it
     } catch (error) {
-      console.error('Error stopping hardware playback:', error);
+      console.error('Error pausing hardware playback:', error);
     }
   }
   
