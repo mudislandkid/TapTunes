@@ -211,8 +211,8 @@ router.post('/play', async (req, res) => {
             // Resume existing process
             try {
                 if (hardwareProcess.stdin && hardwareProcess.stdin.writable) {
-                    console.log(`▶️ [AUDIO] Resuming mpv playback via stdin`);
-                    hardwareProcess.stdin.write('p'); // 'p' toggles pause in mpv
+                    console.log(`▶️ [AUDIO] Resuming mpv playback via stdin (space key)`);
+                    hardwareProcess.stdin.write(' '); // Space toggles pause in mpv
                 }
                 else {
                     console.log(`▶️ [AUDIO] Resuming hardware playback (SIGCONT)`);
@@ -241,8 +241,8 @@ router.post('/pause', (req, res) => {
         try {
             // Check if we're using mpv (which supports proper pause via stdin)
             if (hardwareProcess.stdin && hardwareProcess.stdin.writable) {
-                console.log(`⏸️ [AUDIO] Pausing mpv playback via stdin`);
-                hardwareProcess.stdin.write('p'); // 'p' toggles pause in mpv
+                console.log(`⏸️ [AUDIO] Pausing mpv playback via stdin (space key)`);
+                hardwareProcess.stdin.write(' '); // Space toggles pause in mpv
             }
             else {
                 console.log(`⏸️ [AUDIO] Pausing hardware playback (SIGSTOP)`);
@@ -483,8 +483,8 @@ async function startHardwarePlayback(filePath) {
             // Check if mpv is available (best for pause/resume)
             try {
                 await execAsync('which mpv');
-                // Use mpv with terminal output to get duration info
-                command = `mpv --no-video --term-osd-bar --term-osd-bar-chars="[=>-]" --volume=100 "${cleanFilePath}"`;
+                // Use mpv with optimizations for faster startup
+                command = `mpv --no-video --audio-buffer=0.1 --cache=yes --cache-secs=2 --really-quiet --volume=100 "${cleanFilePath}"`;
             }
             catch {
                 try {
@@ -525,8 +525,8 @@ async function startHardwarePlayback(filePath) {
         console.log(`🛠️ [HARDWARE] Building spawn arguments...`);
         if (command.startsWith('mpv ')) {
             cmd = 'mpv';
-            // Add terminal output options to get duration and progress
-            args = ['--no-video', '--term-osd-bar', '--term-osd-bar-chars=[=>-]', '--volume=100', '--input-terminal=yes', cleanFilePath];
+            // Optimized args for faster startup and less output
+            args = ['--no-video', '--audio-buffer=0.1', '--cache=yes', '--cache-secs=2', '--really-quiet', '--volume=100', '--input-terminal=yes', '--msg-level=all=info', cleanFilePath];
         }
         else if (command.startsWith('mpg123 ')) {
             cmd = 'mpg123';
@@ -559,7 +559,10 @@ async function startHardwarePlayback(filePath) {
         // Capture stderr for debugging
         hardwareProcess.stderr?.on('data', (data) => {
             const output = data.toString().trim();
-            console.log(`🔍 [HARDWARE] stderr: ${output}`);
+            // Only log non-empty, non-binary output
+            if (output && !output.includes('[') && output.length < 200) {
+                console.log(`🔍 [HARDWARE] stderr: ${output}`);
+            }
             // Try to extract duration from mpv output (different possible formats)
             // Format 1: "Duration: HH:MM:SS.MS"
             let durationMatch = output.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
@@ -585,23 +588,38 @@ async function startHardwarePlayback(filePath) {
         // Capture stdout for debugging
         hardwareProcess.stdout?.on('data', (data) => {
             const output = data.toString().trim();
-            console.log(`🔍 [HARDWARE] stdout: ${output}`);
+            // Only log meaningful output, skip progress bars and binary data
+            if (output && !output.includes('[') && !output.includes('blob data') && output.length < 200) {
+                console.log(`🔍 [HARDWARE] stdout: ${output}`);
+            }
             // Also check stdout for duration info (same patterns as stderr)
-            let durationMatch = output.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
-            if (!durationMatch) {
-                durationMatch = output.match(/\/\s*(\d+):(\d+):(\d+)/);
-            }
-            if (!durationMatch) {
-                durationMatch = output.match(/\/\s*(\d{2}):(\d{2}):(\d{2})/);
-            }
+            // Also look for mpv's duration format like "Audio: 48000Hz 2ch s16p 252.720s"
+            let durationMatch = output.match(/(\d+\.\d+)s/);
             if (durationMatch) {
-                const hours = parseInt(durationMatch[1]) || 0;
-                const minutes = parseInt(durationMatch[2]) || 0;
-                const seconds = parseFloat(durationMatch[3]) || 0;
-                const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+                const totalSeconds = parseFloat(durationMatch[1]);
                 if (totalSeconds > 0 && totalSeconds !== duration) {
                     console.log(`⏱️ [HARDWARE] Detected duration: ${totalSeconds} seconds`);
                     duration = totalSeconds;
+                }
+            }
+            else {
+                // Try HH:MM:SS formats
+                durationMatch = output.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
+                if (!durationMatch) {
+                    durationMatch = output.match(/\/\s*(\d+):(\d+):(\d+)/);
+                }
+                if (!durationMatch) {
+                    durationMatch = output.match(/\/\s*(\d{2}):(\d{2}):(\d{2})/);
+                }
+                if (durationMatch) {
+                    const hours = parseInt(durationMatch[1]) || 0;
+                    const minutes = parseInt(durationMatch[2]) || 0;
+                    const seconds = parseFloat(durationMatch[3]) || 0;
+                    const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+                    if (totalSeconds > 0 && totalSeconds !== duration) {
+                        console.log(`⏱️ [HARDWARE] Detected duration: ${totalSeconds} seconds`);
+                        duration = totalSeconds;
+                    }
                 }
             }
         });
