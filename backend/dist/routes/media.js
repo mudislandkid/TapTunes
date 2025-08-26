@@ -125,21 +125,38 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 // Extract metadata from audio file
                 let metadata;
                 if (parseFile) {
-                    metadata = await parseFile(file.path);
+                    try {
+                        metadata = await parseFile(file.path);
+                        console.log(`🎵 [UPLOAD] Extracted metadata for ${file.originalname}:`, {
+                            title: metadata.common.title,
+                            artist: metadata.common.artist,
+                            duration: metadata.format.duration
+                        });
+                    }
+                    catch (metadataError) {
+                        console.error(`❌ [UPLOAD] Failed to extract metadata from ${file.originalname}:`, metadataError);
+                        metadata = {
+                            common: {},
+                            format: { duration: 0 }
+                        };
+                    }
                 }
                 else {
+                    console.log(`⚠️ [UPLOAD] music-metadata not available, using fallback`);
                     // Fallback metadata when music-metadata fails
                     metadata = {
                         common: {},
                         format: { duration: 0 }
                     };
                 }
+                const extractedDuration = Math.round(metadata.format.duration || 0);
+                console.log(`⏱️ [UPLOAD] Duration for ${file.originalname}: ${extractedDuration} seconds`);
                 // Create track record
                 const track = await mediaService.createTrack({
                     title: metadata.common.title || path_1.default.basename(file.originalname, path_1.default.extname(file.originalname)),
                     artist: metadata.common.artist || 'Unknown Artist',
                     album: metadata.common.album || 'Unknown Album',
-                    duration: Math.round(metadata.format.duration || 0),
+                    duration: extractedDuration,
                     genre: metadata.common.genre?.join(', ') || undefined,
                     year: metadata.common.year || undefined,
                     filePath: file.path,

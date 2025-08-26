@@ -111,6 +111,7 @@ router.post('/play-track', async (req, res) => {
         }
         console.log(`📀 [AUDIO] Playing track: "${track.title}" by ${track.artist}`);
         console.log(`📁 [AUDIO] File path: ${track.filePath}`);
+        console.log(`⏱️ [AUDIO] Track duration from database: ${track.duration} seconds`);
         // Create single-track playlist
         currentPlaylist = {
             id: 'single-track',
