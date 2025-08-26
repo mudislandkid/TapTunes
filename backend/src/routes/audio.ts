@@ -535,7 +535,7 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
       // Check if mpv is available (best for pause/resume)
       try {
         await execAsync('which mpv');
-        command = `mpv --no-video --audio-device=alsa/hw:0,0 "${cleanFilePath}"`;
+        command = `mpv --no-video --ao=alsa --audio-device=hw:0,0 --volume=100 "${cleanFilePath}"`;
       } catch {
         try {
           // Fallback to mpg123
@@ -575,7 +575,7 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
     
     if (command.startsWith('mpv ')) {
       cmd = 'mpv';
-      args = ['--no-video', '--audio-device=alsa/hw:0,0', cleanFilePath];
+      args = ['--no-video', '--ao=alsa', '--audio-device=hw:0,0', '--volume=100', cleanFilePath];
     } else if (command.startsWith('mpg123 ')) {
       cmd = 'mpg123';
       args = ['-a', 'hw:0,0', cleanFilePath]; // Use WM8960 audio device
@@ -598,11 +598,21 @@ async function startHardwarePlayback(filePath: string): Promise<void> {
     console.log(`🚀 [HARDWARE] Executing: ${cmd} with args:`, JSON.stringify(args));
     
     hardwareProcess = spawn(cmd, args, {
-      stdio: 'pipe',
+      stdio: ['ignore', 'pipe', 'pipe'], // capture stdout and stderr
       detached: false
     });
 
     console.log(`✨ [HARDWARE] Spawn process created with PID:`, hardwareProcess.pid);
+
+    // Capture stderr for debugging
+    hardwareProcess.stderr?.on('data', (data: Buffer) => {
+      console.log(`🔍 [HARDWARE] stderr: ${data.toString().trim()}`);
+    });
+
+    // Capture stdout for debugging
+    hardwareProcess.stdout?.on('data', (data: Buffer) => {
+      console.log(`🔍 [HARDWARE] stdout: ${data.toString().trim()}`);
+    });
 
     hardwareProcess.on('error', (error: Error) => {
       console.error('❌ [HARDWARE] Hardware playback error:', error);
