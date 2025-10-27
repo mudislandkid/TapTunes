@@ -1,0 +1,29 @@
+[Unit]
+Description=TapTunes Music System
+Documentation=https://github.com/yourusername/TapTunes
+After=network.target sound.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/home/greg/taptunes/python-services
+ExecStart=/usr/bin/python3 /home/greg/taptunes/python-services/taptunes_main.py
+Restart=always
+RestartSec=10
+
+# Environment variables
+Environment="NODE_ENV=production"
+Environment="BACKEND_URL=http://localhost:3001"
+
+# Resource limits
+LimitNOFILE=4096
+MemoryMax=512M
+CPUQuota=95%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=taptunes
+
+[Install]
+WantedBy=multi-user.target
