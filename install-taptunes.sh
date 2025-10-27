@@ -142,11 +142,24 @@ echo "🐍 Step 2: Installing Python Packages"
 echo "=========================================="
 echo ""
 
-pip3 install --upgrade pip
-pip3 install RPi.GPIO spidev mfrc522 requests
+# Install python3-venv if not already installed
+apt-get install -y python3-venv python3-full
+
+# Create virtual environment
+VENV_DIR="$INSTALL_DIR/venv"
+echo "Creating virtual environment at $VENV_DIR..."
+python3 -m venv "$VENV_DIR"
+
+# Install packages in virtual environment
+echo "Installing Python packages in virtual environment..."
+"$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install RPi.GPIO spidev mfrc522 requests
+
+# Set ownership
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "$VENV_DIR"
 
 echo ""
-echo -e "${GREEN}✅ Python packages installed${NC}"
+echo -e "${GREEN}✅ Python packages installed in virtual environment${NC}"
 echo ""
 
 # ============================================

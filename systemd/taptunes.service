@@ -7,13 +7,14 @@ After=network.target sound.target
 Type=simple
 User=root
 WorkingDirectory=/home/greg/taptunes/python-services
-ExecStart=/usr/bin/python3 /home/greg/taptunes/python-services/taptunes_main.py
+ExecStart=/home/greg/taptunes/venv/bin/python /home/greg/taptunes/python-services/taptunes_main.py
 Restart=always
 RestartSec=10
 
 # Environment variables
 Environment="NODE_ENV=production"
 Environment="BACKEND_URL=http://localhost:3001"
+Environment="PATH=/home/greg/taptunes/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 # Resource limits
 LimitNOFILE=4096

@@ -33,6 +33,12 @@ class TapTunesService:
         self.install_dir = Path.home() / 'taptunes'
         self.backend_dir = self.install_dir / 'backend'
         self.python_services_dir = self.install_dir / 'python-services'
+        self.venv_dir = self.install_dir / 'venv'
+
+        # Use venv Python if available, otherwise system Python
+        venv_python = self.venv_dir / 'bin' / 'python3'
+        self.python_cmd = str(venv_python) if venv_python.exists() else 'python3'
+        logger.info(f"Using Python: {self.python_cmd}")
 
     def start_backend(self):
         """Start the Node.js backend"""
@@ -86,7 +92,7 @@ class TapTunesService:
                 return False
 
             self.rfid_process = subprocess.Popen(
-                ['python3', str(rfid_script)],
+                [self.python_cmd, str(rfid_script)],
                 cwd=str(self.python_services_dir),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
@@ -114,7 +120,7 @@ class TapTunesService:
             # If running as root, start directly; otherwise warn
             if os.geteuid() == 0:
                 self.gpio_process = subprocess.Popen(
-                    ['python3', str(gpio_script)],
+                    [self.python_cmd, str(gpio_script)],
                     cwd=str(self.python_services_dir),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE
