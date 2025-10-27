@@ -82,14 +82,19 @@ for service in "${OLD_SERVICES[@]}"; do
     fi
 done
 
-# Clean up old installation directories if they exist
+# Clean up old installation directories if they exist (but not git repos!)
 if [ -d "/home/greg/TapTunes" ] && [ "/home/greg/TapTunes" != "$INSTALL_DIR" ]; then
-    echo "Found old installation at /home/greg/TapTunes"
-    read -p "Remove old installation? (y/n) " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm -rf /home/greg/TapTunes
-        echo "  ✓ Removed old installation"
+    # Check if it's a git repository - don't offer to delete source code!
+    if [ -d "/home/greg/TapTunes/.git" ]; then
+        echo "  ℹ️  Found git repository at /home/greg/TapTunes (keeping as source code)"
+    else
+        echo "Found old installation at /home/greg/TapTunes"
+        read -p "Remove old installation? (y/n) " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            rm -rf /home/greg/TapTunes
+            echo "  ✓ Removed old installation"
+        fi
     fi
 fi
 
