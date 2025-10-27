@@ -155,9 +155,6 @@ echo "Installing Python packages in virtual environment..."
 "$VENV_DIR/bin/pip" install --upgrade pip
 "$VENV_DIR/bin/pip" install RPi.GPIO spidev mfrc522 requests
 
-# Set ownership
-chown -R "$ACTUAL_USER:$ACTUAL_USER" "$VENV_DIR"
-
 echo ""
 echo -e "${GREEN}✅ Python packages installed in virtual environment${NC}"
 echo ""
@@ -210,6 +207,12 @@ chmod +x "$PYTHON_DIR/taptunes_main.py"
 chmod +x "$PYTHON_DIR/gpio_button_service.py"
 chmod +x "$PYTHON_DIR/rfid_service.py"
 echo "  ✓ Python services copied"
+
+# Set ownership of installation directory before npm install
+echo ""
+echo "Setting directory ownership to $ACTUAL_USER..."
+chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
+echo "  ✓ Ownership set"
 
 echo ""
 echo -e "${GREEN}✅ Application files copied${NC}"
@@ -269,9 +272,6 @@ echo ""
 
 # Copy service file
 cp "$SCRIPT_DIR/systemd/taptunes.service" /etc/systemd/system/
-
-# Set ownership
-chown -R "$ACTUAL_USER:$ACTUAL_USER" "$INSTALL_DIR"
 
 # Reload systemd
 systemctl daemon-reload
