@@ -31,6 +31,31 @@ const router = express_1.default.Router();
 const mediaService = new mediaService_1.MediaService();
 const metadataService = new metadataService_1.MetadataService();
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
+// Helper function to parse common filename patterns
+function parseFilename(filename) {
+    // Remove file extension
+    const nameWithoutExt = path_1.default.basename(filename, path_1.default.extname(filename));
+    // Common patterns:
+    // "Artist - Title"
+    // "Artist-Title"
+    // "01 Artist - Title"
+    // "01. Artist - Title"
+    // Try to match "Artist - Title" pattern (most common)
+    const dashPattern = /^(?:\d+\.?\s*)?(.+?)\s*[-–—]\s*(.+)$/;
+    const match = nameWithoutExt.match(dashPattern);
+    if (match) {
+        const [, possibleArtist, possibleTitle] = match;
+        // If the artist part looks reasonable (not too long), use it
+        if (possibleArtist.length < 50 && possibleTitle.length > 0) {
+            return {
+                artist: possibleArtist.trim(),
+                title: possibleTitle.trim()
+            };
+        }
+    }
+    // No pattern matched, return the whole filename as title
+    return { title: nameWithoutExt };
+}
 // Helper to find yt-dlp binary (prefer venv version)
 function getYtDlpPath() {
     const installDir = process.env.TAPTUNES_INSTALL_DIR || '/home/greg/taptunes';
@@ -178,11 +203,17 @@ router.post('/upload', upload.fields([
                 }
                 const extractedDuration = Math.round(metadata.format.duration || 0);
                 console.log(`⏱️ [UPLOAD] Duration for ${file.originalname}: ${extractedDuration} seconds`);
+                // Parse filename if metadata is missing
+                const parsedFilename = parseFilename(file.originalname);
+                // Prefer metadata, fall back to parsed filename
+                const trackTitle = metadata.common.title || parsedFilename.title;
+                const trackArtist = metadata.common.artist || parsedFilename.artist || 'Unknown Artist';
+                console.log(`📝 [UPLOAD] Track info - Title: "${trackTitle}", Artist: "${trackArtist}"`);
                 // Create track record with optional album override
                 console.log(`💾 [UPLOAD] Creating track record in database...`);
                 const track = await mediaService.createTrack({
-                    title: metadata.common.title || path_1.default.basename(file.originalname, path_1.default.extname(file.originalname)),
-                    artist: metadata.common.artist || 'Unknown Artist',
+                    title: trackTitle,
+                    artist: trackArtist,
                     album: albumName || metadata.common.album || 'Unknown Album', // Use albumName if provided
                     duration: extractedDuration,
                     genre: metadata.common.genre?.join(', ') || undefined,
