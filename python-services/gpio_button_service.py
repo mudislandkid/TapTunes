@@ -193,7 +193,7 @@ class GPIOButtonService:
         try:
             while True:
                 self.check_buttons()
-                time.sleep(0.01)  # 10ms polling interval
+                time.sleep(0.05)  # 50ms polling interval (20Hz - plenty for buttons)
 
         except KeyboardInterrupt:
             logger.info("\nShutting down GPIO Button Service...")
