@@ -132,12 +132,19 @@ class MetadataService {
     async downloadAlbumArt(artUrl, trackId) {
         try {
             console.log(`⬇️ [METADATA] Downloading album art: ${artUrl}`);
-            const response = await this.makeRequest(artUrl);
-            if (!response.ok) {
+            // Download image directly with axios (not through makeRequest)
+            const response = await axios_1.default.get(artUrl, {
+                responseType: 'arraybuffer',
+                timeout: 15000,
+                headers: {
+                    'User-Agent': this.userAgent
+                }
+            });
+            if (response.status !== 200) {
                 throw new Error(`Failed to download image: ${response.status}`);
             }
             // Get file extension from content type or URL
-            const contentType = response.headers.get('content-type') || '';
+            const contentType = response.headers['content-type'] || '';
             let extension = '.jpg';
             if (contentType.includes('png'))
                 extension = '.png';
@@ -153,8 +160,8 @@ class MetadataService {
             // Save with track ID as filename
             const filename = `album-art-${trackId}${extension}`;
             const localPath = path_1.default.join(uploadsDir, filename);
-            const buffer = await response.arrayBuffer();
-            await promises_1.default.writeFile(localPath, Buffer.from(buffer));
+            // Axios with responseType: 'arraybuffer' returns data as Buffer
+            await promises_1.default.writeFile(localPath, Buffer.from(response.data));
             console.log(`✅ [METADATA] Album art saved: ${localPath}`);
             return localPath;
         }
