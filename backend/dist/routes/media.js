@@ -396,16 +396,17 @@ router.post('/download-youtube', async (req, res) => {
                 });
                 await new Promise((resolve, reject) => {
                     // Set a timeout for the download process
+                    // Pi Zero W is slow, needs time for download + conversion
                     const timeout = setTimeout(() => {
                         ytDlpProcess.kill();
                         sendProgress(downloadId, {
                             status: 'error',
                             message: 'Download timeout - process took too long',
                             progress: 0,
-                            error: 'Timeout after 2 minutes'
+                            error: 'Timeout after 10 minutes'
                         });
                         reject(new Error('Download timeout - process took too long'));
-                    }, 120000); // 2 minutes timeout
+                    }, 600000); // 10 minutes timeout (Pi Zero W is slow!)
                     ytDlpProcess.on('close', (code) => {
                         clearTimeout(timeout);
                         if (code === 0) {
