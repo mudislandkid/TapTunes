@@ -683,6 +683,16 @@ async function startHardwarePlayback(filePath, startPosition = 0) {
                     }
                 }, 100);
             }
+            else if (code === 0) {
+                // No more tracks or reached end of playlist - reset playback state
+                console.log('🏁 [HARDWARE] Playback complete - resetting state');
+                isPlaying = false;
+                currentTime = 0;
+                currentTrackIndex = -1;
+                currentPlaylist = null;
+                duration = 0;
+                playbackStartTime = null;
+            }
         });
     }
     catch (error) {

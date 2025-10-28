@@ -739,20 +739,29 @@ async function startHardwarePlayback(filePath: string, startPosition: number = 0
     hardwareProcess.on('exit', (code: number) => {
       console.log(`🏁 [HARDWARE] Hardware playback process exited with code ${code}`);
       hardwareProcess = null;
-      
+
       // Auto-advance to next track if playback finished naturally
       if (code === 0 && isPlaying && currentPlaylist?.tracks && currentTrackIndex < currentPlaylist.tracks.length - 1) {
         currentTrackIndex++;
         currentTime = 0;
         duration = currentPlaylist.tracks[currentTrackIndex]?.duration || 180;
         playbackStartTime = Date.now();
-        
+
         // Start next track
         setTimeout(() => {
           if (isPlaying) {
             startHardwarePlayback(currentPlaylist!.tracks[currentTrackIndex].file_path);
           }
         }, 100);
+      } else if (code === 0) {
+        // No more tracks or reached end of playlist - reset playback state
+        console.log('🏁 [HARDWARE] Playback complete - resetting state');
+        isPlaying = false;
+        currentTime = 0;
+        currentTrackIndex = -1;
+        currentPlaylist = null;
+        duration = 0;
+        playbackStartTime = null;
       }
     });
 
