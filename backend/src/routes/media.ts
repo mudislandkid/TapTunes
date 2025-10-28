@@ -7,14 +7,13 @@ import { promisify } from 'util';
 import { MediaService } from '../services/mediaService';
 import { MetadataService } from '../services/metadataService';
 
-// Music-metadata loader with ESM support
+// Music-metadata loader (v7.x has CommonJS support)
 let parseFile: any;
 
-async function ensureMusicMetadata() {
+function ensureMusicMetadata() {
   if (!parseFile) {
     try {
-      // music-metadata v11+ is ESM-only, use dynamic import
-      const mm = await import('music-metadata');
+      const mm = require('music-metadata');
       parseFile = mm.parseFile;
       console.log('✅ [METADATA] music-metadata loaded successfully');
     } catch (error: any) {
@@ -167,7 +166,7 @@ router.post('/upload', upload.fields([
         // Extract metadata from audio file
         let metadata;
         try {
-          const parser = await ensureMusicMetadata();
+          const parser = ensureMusicMetadata();
           if (parser) {
             metadata = await parser(file.path);
             console.log(`🎵 [UPLOAD] Extracted metadata for ${file.originalname}:`, {
@@ -595,7 +594,7 @@ router.post('/download-youtube', async (req, res) => {
         // Extract audio metadata
         let metadata: any = {};
         try {
-          const parser = await ensureMusicMetadata();
+          const parser = ensureMusicMetadata();
           if (parser) {
             metadata = await parser(audioFilePath);
             console.log(`🎵 [YOUTUBE] Audio metadata extracted`);
