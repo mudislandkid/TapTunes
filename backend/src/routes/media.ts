@@ -301,9 +301,14 @@ router.post('/download-youtube', async (req, res) => {
           '--fragment-retries', '5',
           '--skip-unavailable-fragments',
           // Workaround for YouTube SABR streaming and signature issues
-          '--extractor-args', 'youtube:player_client=android,web',
-          '--extractor-args', 'youtube:player_skip=webpage,configs',
+          // Use android client (most reliable) and ios as backup
+          '--extractor-args', 'youtube:player_client=android,ios,web',
+          '--extractor-args', 'youtube:player_skip=webpage',
+          // Bypass age gate and other restrictions
+          '--extractor-args', 'youtube:skip=hls,dash',
           '--no-check-certificate',
+          // Force IPv4 (some networks have IPv6 issues)
+          '-4',
           '--output', outputTemplate,
           url
         ];
@@ -319,6 +324,15 @@ router.post('/download-youtube', async (req, res) => {
         const { spawn } = require('child_process');
 
         const ytDlpPath = getYtDlpPath();
+
+        // Log yt-dlp version for debugging
+        try {
+          const { stdout: versionOutput } = await execAsync(`${ytDlpPath} --version`);
+          console.log(`📹 [YOUTUBE] yt-dlp version: ${versionOutput.trim()}`);
+        } catch (err) {
+          console.warn('⚠️ [YOUTUBE] Could not get yt-dlp version:', err);
+        }
+
         const ytDlpProcess = spawn(ytDlpPath, ytDlpArgs, {
           stdio: 'pipe'
         });
