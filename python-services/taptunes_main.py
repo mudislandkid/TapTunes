@@ -63,8 +63,8 @@ class TapTunesService:
                 ['node', str(backend_script)],
                 cwd=str(self.backend_dir),
                 env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stdout=None,  # Inherit parent's stdout (goes to systemd logs)
+                stderr=None   # Inherit parent's stderr (goes to systemd logs)
             )
 
             logger.info(f"✅ Backend started (PID: {self.backend_process.pid})")
@@ -97,8 +97,8 @@ class TapTunesService:
             self.rfid_process = subprocess.Popen(
                 [self.python_cmd, str(rfid_script)],
                 cwd=str(self.python_services_dir),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
+                stdout=None,  # Inherit parent's stdout (goes to systemd logs)
+                stderr=None   # Inherit parent's stderr (goes to systemd logs)
             )
 
             logger.info(f"✅ RFID Scanner started (PID: {self.rfid_process.pid})")
@@ -125,8 +125,8 @@ class TapTunesService:
                 self.gpio_process = subprocess.Popen(
                     [self.python_cmd, str(gpio_script)],
                     cwd=str(self.python_services_dir),
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
+                    stdout=None,  # Inherit parent's stdout (goes to systemd logs)
+                    stderr=None   # Inherit parent's stderr (goes to systemd logs)
                 )
                 logger.info(f"✅ GPIO Button Service started (PID: {self.gpio_process.pid})")
                 return True
