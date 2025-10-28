@@ -173,8 +173,13 @@ export const MediaUpload = memo(function MediaUpload({
       // Get download ID and connect to SSE
       const { downloadId } = data
 
-      // Close input dialog and open progress dialog
+      // Close input dialog and open progress dialog with initial state
       setIsYouTubeDialogOpen(false)
+      setYoutubeProgress({
+        status: 'initializing',
+        message: 'Connecting...',
+        progress: 0
+      })
       setIsYouTubeProgressOpen(true)
 
       // Connect to SSE progress endpoint
