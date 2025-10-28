@@ -40,16 +40,35 @@ scp -r backend frontend python-services systemd install-taptunes.sh scripts gpio
 # SSH into your Raspberry Pi
 ssh pi@your-pi-ip
 
-# Run the installer
+# First time installation
 cd ~/taptunes
 sudo ./install-taptunes.sh
 ```
 
+**Installation Modes:**
+
+The installer automatically detects if you have an existing installation:
+
+- **First Install** - Full installation with all dependencies
+- **Update Mode** (default) - Preserves venv, only updates code and restarts service
+- **Clean Install** - Use `--clean-install` flag to force full reinstall
+
+```bash
+# Update existing installation (fast - preserves venv)
+sudo ./install-taptunes.sh
+
+# Force clean reinstall (recreates venv, reinstalls all deps)
+sudo ./install-taptunes.sh --clean-install
+
+# Show help
+sudo ./install-taptunes.sh --help
+```
+
 The installer will:
-- ✅ Install all system dependencies (Node.js, Python, audio tools)
-- ✅ Install Python packages (RPi.GPIO, spidev, mfrc522, requests)
+- ✅ Install all system dependencies (Node.js, Python, audio tools) - **skipped on updates**
+- ✅ Create Python virtual environment and install packages - **skipped on updates**
 - ✅ Copy application files to `/home/greg/taptunes/`
-- ✅ Install backend dependencies
+- ✅ Install backend dependencies (npm install)
 - ✅ Configure GPIO and SPI hardware
 - ✅ Install and enable the unified systemd service
 - ✅ Create music directory
@@ -393,16 +412,63 @@ For issues or questions:
 
 ## Updates
 
-To update TapTunes:
+To update TapTunes to a new version:
 
-1. Build new version on development machine
-2. Transfer files to Pi
-3. Run installation script again:
+### Quick Update (Recommended)
+
+```bash
+# On your Pi - pull latest from git repo
+cd ~/TapTunes
+git pull
+
+# Run the installer (automatically detects update mode)
+sudo ./install-taptunes.sh
+```
+
+The installer will:
+- ✅ Detect existing installation
+- ✅ Preserve your virtual environment (fast!)
+- ✅ Copy new code files
+- ✅ Update backend dependencies
+- ✅ Restart the service
+
+**No need to recreate venv or reinstall Python packages!**
+
+### Manual Update (Alternative)
+
+If you're not using git:
+
+1. **Build new version** (on development machine):
    ```bash
-   cd ~/taptunes
+   cd backend && npm run build
+   cd ../frontend && npm run build
+   ```
+
+2. **Transfer files** to Pi:
+   ```bash
+   scp -r backend/dist backend/package.json python-services systemd pi@your-pi-ip:~/TapTunes/
+   ```
+
+3. **Run update** (on Pi):
+   ```bash
+   cd ~/TapTunes
    sudo ./install-taptunes.sh
    ```
-4. Restart service:
-   ```bash
-   sudo systemctl restart taptunes
-   ```
+
+The installer automatically handles the update!
+
+### Force Clean Reinstall
+
+If you need to completely recreate the environment:
+
+```bash
+sudo ./install-taptunes.sh --clean-install
+```
+
+This will:
+- Remove and recreate the virtual environment
+- Reinstall all system dependencies
+- Reinstall all Python packages
+- Full fresh installation
+
+**Note:** Only use `--clean-install` if you're having dependency issues or major version changes.
