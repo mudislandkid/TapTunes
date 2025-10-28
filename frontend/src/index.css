@@ -60,22 +60,27 @@
   html {
     @apply dark;
     height: 100%;
-    overflow-y: auto;
+    overflow-y: scroll; /* Force scrollbar to always show space */
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   }
 
   body {
     @apply bg-background text-foreground;
     min-height: 100vh;
-    overflow-y: auto;
+    height: auto;
+    overflow-y: scroll;
     overflow-x: hidden;
     position: relative;
+    touch-action: pan-y; /* Enable vertical touch scrolling */
   }
 
   #root {
     min-height: 100vh;
-    overflow-y: auto;
+    height: auto;
+    overflow-y: visible;
     overflow-x: hidden;
+    touch-action: pan-y;
   }
 }
 
@@ -117,12 +122,14 @@
   }
   
   .dark-gradient-bg {
-    background: linear-gradient(135deg, 
-      #020617 0%, 
-      #0f172a 25%, 
-      #1e293b 50%, 
-      #334155 75%, 
+    background: linear-gradient(135deg,
+      #020617 0%,
+      #0f172a 25%,
+      #1e293b 50%,
+      #334155 75%,
       #475569 100%);
+    min-height: 100vh;
+    height: auto;
   }
   
   @keyframes gradientFlow {

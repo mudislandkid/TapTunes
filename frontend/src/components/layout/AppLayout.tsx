@@ -29,8 +29,8 @@ export const AppLayout = memo(function AppLayout({
   children
 }: AppLayoutProps) {
   return (
-    <div className="min-h-screen dark-gradient-bg">
-      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-6xl">
+    <div className="min-h-screen dark-gradient-bg overflow-y-visible">
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-6xl overflow-y-visible">
         {/* Header */}
         <motion.header 
           variants={staggerContainer}
