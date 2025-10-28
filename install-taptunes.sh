@@ -3,6 +3,10 @@
 # TapTunes Unified Installation Script
 # Installs and configures TapTunes on Raspberry Pi
 # Includes: Backend, RFID Scanner, GPIO Buttons
+#
+# Usage:
+#   sudo ./install-taptunes.sh              # Update existing installation
+#   sudo ./install-taptunes.sh --clean-install  # Fresh install (recreates venv, reinstalls deps)
 
 set -e
 
@@ -15,7 +19,34 @@ echo ""
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Parse command line arguments
+CLEAN_INSTALL=false
+for arg in "$@"; do
+    case $arg in
+        --clean-install)
+            CLEAN_INSTALL=true
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: sudo ./install-taptunes.sh [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --clean-install    Perform a fresh installation (recreate venv, reinstall all deps)"
+            echo "  --help, -h         Show this help message"
+            echo ""
+            echo "Default behavior (no flags): Update existing installation without recreating venv"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $arg${NC}"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 # Check if running on Raspberry Pi
 echo "🔍 Checking system..."
@@ -54,6 +85,22 @@ PYTHON_DIR="$INSTALL_DIR/python-services"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 echo "📦 Installation directory: $INSTALL_DIR"
+echo ""
+
+# Check if this is an update or fresh install
+EXISTING_INSTALL=false
+if [ -d "$INSTALL_DIR" ] && [ -d "$INSTALL_DIR/venv" ]; then
+    EXISTING_INSTALL=true
+fi
+
+if [ "$CLEAN_INSTALL" = true ]; then
+    echo -e "${BLUE}ℹ️  Mode: CLEAN INSTALL (will recreate venv and reinstall all dependencies)${NC}"
+elif [ "$EXISTING_INSTALL" = true ]; then
+    echo -e "${BLUE}ℹ️  Mode: UPDATE (will preserve venv and only update code)${NC}"
+    echo -e "${BLUE}   Use --clean-install flag to force a fresh installation${NC}"
+else
+    echo -e "${BLUE}ℹ️  Mode: FIRST INSTALL (no existing installation detected)${NC}"
+fi
 echo ""
 
 # ============================================
@@ -107,57 +154,83 @@ echo ""
 # ============================================
 # Step 1: Install system dependencies
 # ============================================
-echo "=========================================="
-echo "📦 Step 1: Installing System Dependencies"
-echo "=========================================="
-echo ""
+if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
+    echo "=========================================="
+    echo "📦 Step 1: System Dependencies"
+    echo "=========================================="
+    echo ""
+    echo -e "${BLUE}ℹ️  Skipping system dependencies (already installed)${NC}"
+    echo ""
+else
+    echo "=========================================="
+    echo "📦 Step 1: Installing System Dependencies"
+    echo "=========================================="
+    echo ""
 
-echo "Updating package list..."
-apt-get update -qq
+    echo "Updating package list..."
+    apt-get update -qq
 
-echo "Installing Node.js and npm..."
-if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-    apt-get install -y nodejs
+    echo "Installing Node.js and npm..."
+    if ! command -v node &> /dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        apt-get install -y nodejs
+    fi
+
+    echo "Installing Python dependencies..."
+    apt-get install -y python3 python3-pip python3-dev
+
+    echo "Installing audio tools..."
+    apt-get install -y mpg123 alsa-utils
+
+    echo "Installing SPI tools (for RFID)..."
+    apt-get install -y python3-spidev
+
+    echo ""
+    echo -e "${GREEN}✅ System dependencies installed${NC}"
+    echo ""
 fi
-
-echo "Installing Python dependencies..."
-apt-get install -y python3 python3-pip python3-dev
-
-echo "Installing audio tools..."
-apt-get install -y mpg123 alsa-utils
-
-echo "Installing SPI tools (for RFID)..."
-apt-get install -y python3-spidev
-
-echo ""
-echo -e "${GREEN}✅ System dependencies installed${NC}"
-echo ""
 
 # ============================================
 # Step 2: Install Python packages
 # ============================================
-echo "=========================================="
-echo "🐍 Step 2: Installing Python Packages"
-echo "=========================================="
-echo ""
-
-# Install python3-venv if not already installed
-apt-get install -y python3-venv python3-full
-
-# Create virtual environment
 VENV_DIR="$INSTALL_DIR/venv"
-echo "Creating virtual environment at $VENV_DIR..."
-python3 -m venv "$VENV_DIR"
 
-# Install packages in virtual environment
-echo "Installing Python packages in virtual environment..."
-"$VENV_DIR/bin/pip" install --upgrade pip
-"$VENV_DIR/bin/pip" install RPi.GPIO spidev mfrc522 requests
+if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
+    echo "=========================================="
+    echo "🐍 Step 2: Python Virtual Environment"
+    echo "=========================================="
+    echo ""
+    echo -e "${BLUE}ℹ️  Preserving existing virtual environment${NC}"
+    echo "   (Use --clean-install to recreate)"
+    echo ""
+else
+    echo "=========================================="
+    echo "🐍 Step 2: Creating Python Virtual Environment"
+    echo "=========================================="
+    echo ""
 
-echo ""
-echo -e "${GREEN}✅ Python packages installed in virtual environment${NC}"
-echo ""
+    # Install python3-venv if not already installed
+    apt-get install -y python3-venv python3-full
+
+    # Remove old venv if doing clean install
+    if [ "$CLEAN_INSTALL" = true ] && [ -d "$VENV_DIR" ]; then
+        echo "Removing old virtual environment..."
+        rm -rf "$VENV_DIR"
+    fi
+
+    # Create virtual environment
+    echo "Creating virtual environment at $VENV_DIR..."
+    python3 -m venv "$VENV_DIR"
+
+    # Install packages in virtual environment
+    echo "Installing Python packages in virtual environment..."
+    "$VENV_DIR/bin/pip" install --upgrade pip
+    "$VENV_DIR/bin/pip" install RPi.GPIO spidev mfrc522 requests
+
+    echo ""
+    echo -e "${GREEN}✅ Python virtual environment created${NC}"
+    echo ""
+fi
 
 # ============================================
 # Step 3: Create installation directories
@@ -302,9 +375,17 @@ echo ""
 # ============================================
 echo ""
 echo "=========================================="
-echo "✅ Installation Complete!"
+if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
+    echo "✅ Update Complete!"
+else
+    echo "✅ Installation Complete!"
+fi
 echo "=========================================="
 echo ""
+if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
+    echo -e "${BLUE}ℹ️  Updated existing installation (preserved venv and dependencies)${NC}"
+    echo ""
+fi
 echo "📍 Installation Location: $INSTALL_DIR"
 echo "🎵 Music Directory: $MUSIC_DIR"
 echo ""
@@ -326,14 +407,28 @@ echo "  • Test GPIO pins:      sudo python3 $INSTALL_DIR/../gpio-pin-detector.
 echo "  • Register RFID card:  python3 $PYTHON_DIR/register-card.py"
 echo "  • Hardware check:      bash $INSTALL_DIR/../scripts/rpi-hardware-check.sh"
 echo ""
-echo -e "${YELLOW}⚠️  IMPORTANT: Reboot required for SPI changes to take effect${NC}"
-echo ""
-read -p "Would you like to start TapTunes now? (y/n) " -n 1 -r
+if [ "$EXISTING_INSTALL" = false ] || [ "$CLEAN_INSTALL" = true ]; then
+    echo -e "${YELLOW}⚠️  IMPORTANT: Reboot recommended for SPI/hardware changes to take effect${NC}"
+    echo ""
+fi
+
+# Prompt to start/restart service
+if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
+    read -p "Would you like to restart TapTunes now? (y/n) " -n 1 -r
+else
+    read -p "Would you like to start TapTunes now? (y/n) " -n 1 -r
+fi
+
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo ""
-    echo "🚀 Starting TapTunes..."
-    systemctl start taptunes
+    if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
+        echo "🔄 Restarting TapTunes..."
+        systemctl restart taptunes
+    else
+        echo "🚀 Starting TapTunes..."
+        systemctl start taptunes
+    fi
     sleep 3
     echo ""
     echo "Service Status:"
@@ -344,8 +439,13 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "Access the web interface at: http://$(hostname -I | awk '{print $1}'):3001"
 else
     echo ""
-    echo "You can start TapTunes later with:"
-    echo "  sudo systemctl start taptunes"
+    if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
+        echo "You can restart TapTunes later with:"
+        echo "  sudo systemctl restart taptunes"
+    else
+        echo "You can start TapTunes later with:"
+        echo "  sudo systemctl start taptunes"
+    fi
 fi
 
 echo ""
