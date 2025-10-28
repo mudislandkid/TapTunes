@@ -30,7 +30,7 @@ export const AppLayout = memo(function AppLayout({
 }: AppLayoutProps) {
   return (
     <div className="min-h-screen dark-gradient-bg">
-      <div className="container mx-auto px-4 py-6 max-w-6xl">
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-6 max-w-6xl">
         {/* Header */}
         <motion.header 
           variants={staggerContainer}
@@ -54,16 +54,16 @@ export const AppLayout = memo(function AppLayout({
                 <Music className="w-6 h-6 text-white" />
               </motion.div>
               <div>
-                <motion.h1 
-                  className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"
+                <motion.h1
+                  className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.2, ...springConfig }}
                 >
                   TapTunes
                 </motion.h1>
-                <motion.p 
-                  className="text-sm text-slate-300"
+                <motion.p
+                  className="text-xs sm:text-sm text-slate-300"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.4 }}

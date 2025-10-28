@@ -45,16 +45,16 @@ export const NowPlaying = memo(function NowPlaying({
   onVolumeChange
 }: NowPlayingProps) {
   return (
-    <motion.div 
+    <motion.div
       className="lg:col-span-2"
       variants={fadeInUp}
     >
       <motion.div>
-        <GlassCard className="p-8">
-          <div className="flex flex-col items-center space-y-6">
+        <GlassCard className="p-4 md:p-8">
+          <div className="flex flex-col items-center space-y-4 md:space-y-6">
             {/* Album Art */}
             <div className="relative">
-              <div className="w-64 h-64 bg-gradient-to-br from-slate-800/40 to-slate-700/40 rounded-3xl flex items-center justify-center border border-slate-600/30">
+              <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 bg-gradient-to-br from-slate-800/40 to-slate-700/40 rounded-3xl flex items-center justify-center border border-slate-600/30">
                 {playbackState.currentTrack ? (
                   <div className="text-center">
                     <Music className="w-16 h-16 text-slate-200 mx-auto mb-4" />
