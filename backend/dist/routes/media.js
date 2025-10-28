@@ -286,6 +286,16 @@ router.post('/download-youtube', async (req, res) => {
                     '--write-info-json',
                     '--no-playlist',
                     '--newline', // Progress on new lines
+                    // User-agent to avoid bot detection
+                    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    // Additional headers to appear more like a real browser
+                    '--add-header', 'Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    '--add-header', 'Accept-Language:en-us,en;q=0.5',
+                    '--add-header', 'Sec-Fetch-Mode:navigate',
+                    // Retry and timeout settings
+                    '--retries', '5',
+                    '--fragment-retries', '5',
+                    '--skip-unavailable-fragments',
                     '--output', outputTemplate,
                     url
                 ];
