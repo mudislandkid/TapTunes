@@ -76,6 +76,21 @@ const router = express_1.default.Router();
 const mediaService = new mediaService_1.MediaService();
 const metadataService = new metadataService_1.MetadataService();
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
+// Helper to find yt-dlp binary (prefer venv version)
+function getYtDlpPath() {
+    const installDir = process.env.TAPTUNES_INSTALL_DIR || '/home/greg/taptunes';
+    const venvYtDlp = path_1.default.join(installDir, 'venv', 'bin', 'yt-dlp');
+    // Check if venv version exists (synchronously, only once at startup)
+    try {
+        require('fs').accessSync(venvYtDlp, require('fs').constants.X_OK);
+        console.log(`✅ [YOUTUBE] Using venv yt-dlp: ${venvYtDlp}`);
+        return venvYtDlp;
+    }
+    catch {
+        console.log('⚠️ [YOUTUBE] Using system yt-dlp (venv version not found)');
+        return 'yt-dlp'; // Fall back to system PATH
+    }
+}
 // Configure multer for file uploads
 const storage = multer_1.default.diskStorage({
     destination: async (req, file, cb) => {
@@ -296,6 +311,10 @@ router.post('/download-youtube', async (req, res) => {
                     '--retries', '5',
                     '--fragment-retries', '5',
                     '--skip-unavailable-fragments',
+                    // Workaround for YouTube SABR streaming and signature issues
+                    '--extractor-args', 'youtube:player_client=android,web',
+                    '--extractor-args', 'youtube:player_skip=webpage,configs',
+                    '--no-check-certificate',
                     '--output', outputTemplate,
                     url
                 ];
@@ -306,7 +325,8 @@ router.post('/download-youtube', async (req, res) => {
                     progress: 5
                 });
                 const { spawn } = require('child_process');
-                const ytDlpProcess = spawn('yt-dlp', ytDlpArgs, {
+                const ytDlpPath = getYtDlpPath();
+                const ytDlpProcess = spawn(ytDlpPath, ytDlpArgs, {
                     stdio: 'pipe'
                 });
                 let stdout = '';
