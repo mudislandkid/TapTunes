@@ -39,6 +39,22 @@ const mediaService = new MediaService();
 const metadataService = new MetadataService();
 const execAsync = promisify(exec);
 
+// Helper to find yt-dlp binary (prefer venv version)
+function getYtDlpPath(): string {
+  const installDir = process.env.TAPTUNES_INSTALL_DIR || '/home/greg/taptunes';
+  const venvYtDlp = path.join(installDir, 'venv', 'bin', 'yt-dlp');
+
+  // Check if venv version exists (synchronously, only once at startup)
+  try {
+    require('fs').accessSync(venvYtDlp, require('fs').constants.X_OK);
+    console.log(`✅ [YOUTUBE] Using venv yt-dlp: ${venvYtDlp}`);
+    return venvYtDlp;
+  } catch {
+    console.log('⚠️ [YOUTUBE] Using system yt-dlp (venv version not found)');
+    return 'yt-dlp'; // Fall back to system PATH
+  }
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -302,7 +318,8 @@ router.post('/download-youtube', async (req, res) => {
 
         const { spawn } = require('child_process');
 
-        const ytDlpProcess = spawn('yt-dlp', ytDlpArgs, {
+        const ytDlpPath = getYtDlpPath();
+        const ytDlpProcess = spawn(ytDlpPath, ytDlpArgs, {
           stdio: 'pipe'
         });
 

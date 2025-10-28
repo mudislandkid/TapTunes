@@ -1,3 +1,15 @@
-# Minimal requirements for TapTunes RFID service on Pi Zero W
+# TapTunes Python Service Dependencies
+
+# GPIO and Hardware
+RPi.GPIO>=0.7.1
+spidev>=3.6
+mfrc522>=0.0.7
+
+# Serial communication
 pyserial>=3.5
-# Add other dependencies as needed for your specific RFID hardware
+
+# HTTP requests
+requests>=2.31.0
+
+# YouTube downloads (used by backend via subprocess)
+yt-dlp>=2024.1.0

@@ -203,6 +203,12 @@ if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
     echo -e "${BLUE}ℹ️  Preserving existing virtual environment${NC}"
     echo "   (Use --clean-install to recreate)"
     echo ""
+
+    # Always update yt-dlp on updates (YouTube breaks frequently)
+    echo "Updating yt-dlp..."
+    "$VENV_DIR/bin/pip" install --upgrade yt-dlp
+    echo "  ✓ yt-dlp updated"
+    echo ""
 else
     echo "=========================================="
     echo "🐍 Step 2: Creating Python Virtual Environment"
@@ -225,7 +231,19 @@ else
     # Install packages in virtual environment
     echo "Installing Python packages in virtual environment..."
     "$VENV_DIR/bin/pip" install --upgrade pip
-    "$VENV_DIR/bin/pip" install RPi.GPIO spidev mfrc522 requests
+
+    # Install from requirements.txt if it exists
+    if [ -f "$SCRIPT_DIR/python-services/requirements.txt" ]; then
+        echo "Installing from requirements.txt..."
+        "$VENV_DIR/bin/pip" install -r "$SCRIPT_DIR/python-services/requirements.txt"
+    else
+        echo "No requirements.txt found, installing default packages..."
+        "$VENV_DIR/bin/pip" install RPi.GPIO spidev mfrc522 requests
+    fi
+
+    # Ensure yt-dlp is installed (critical for YouTube downloads)
+    echo "Installing yt-dlp..."
+    "$VENV_DIR/bin/pip" install --upgrade yt-dlp
 
     echo ""
     echo -e "${GREEN}✅ Python virtual environment created${NC}"
