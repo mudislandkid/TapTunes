@@ -327,8 +327,11 @@ router.post('/download-youtube', async (req, res) => {
         let stdout = '';
         let stderr = '';
         let videoTitle = '';
+        let lastOutputTime = Date.now();
+        let lastProgressData = { status: 'initializing', progress: 0, message: 'Starting...' };
 
         ytDlpProcess.stdout.on('data', (data: Buffer) => {
+          lastOutputTime = Date.now(); // Track output for keepalive
           const output = data.toString();
           stdout += output;
 
@@ -342,10 +345,13 @@ router.post('/download-youtube', async (req, res) => {
               const titleMatch = line.match(/\[youtube\]\s+[^:]+:\s+(.+)/);
               if (titleMatch && !videoTitle) {
                 videoTitle = titleMatch[1].trim();
-                sendProgress(downloadId, {
+                lastProgressData = {
                   status: 'fetching',
                   message: `Found: ${videoTitle}`,
-                  progress: 10,
+                  progress: 10
+                };
+                sendProgress(downloadId, {
+                  ...lastProgressData,
                   videoTitle
                 });
               }
@@ -356,10 +362,13 @@ router.post('/download-youtube', async (req, res) => {
               const progressMatch = line.match(/(\d+\.?\d*)%/);
               if (progressMatch) {
                 const downloadProgress = parseFloat(progressMatch[1]);
-                sendProgress(downloadId, {
+                lastProgressData = {
                   status: 'downloading',
                   message: `Downloading... ${downloadProgress.toFixed(1)}%`,
-                  progress: 10 + (downloadProgress * 0.6), // 10-70%
+                  progress: 10 + (downloadProgress * 0.6) // 10-70%
+                };
+                sendProgress(downloadId, {
+                  ...lastProgressData,
                   videoTitle: videoTitle || 'Video'
                 });
               }
@@ -367,10 +376,13 @@ router.post('/download-youtube', async (req, res) => {
 
             // Post-processing started
             if (line.includes('[ExtractAudio]')) {
-              sendProgress(downloadId, {
+              lastProgressData = {
                 status: 'processing',
                 message: 'Converting to MP3...',
-                progress: 75,
+                progress: 75
+              };
+              sendProgress(downloadId, {
+                ...lastProgressData,
                 videoTitle
               });
             }
@@ -397,8 +409,25 @@ router.post('/download-youtube', async (req, res) => {
             reject(new Error('Download timeout - process took too long'));
           }, 600000); // 10 minutes timeout (Pi Zero W is slow!)
 
+          // Send keepalive messages every 30 seconds to prevent SSE/nginx timeout
+          // This is important during the MP3 conversion phase when yt-dlp is silent
+          const keepaliveInterval = setInterval(() => {
+            // Only send keepalive if no output for 20+ seconds
+            if (Date.now() - lastOutputTime > 20000) {
+              sendProgress(downloadId, {
+                status: lastProgressData.status || 'processing',
+                message: lastProgressData.status === 'downloading'
+                  ? 'Still downloading...'
+                  : 'Converting to MP3...',
+                progress: lastProgressData.progress,
+                videoTitle
+              });
+            }
+          }, 30000);
+
           ytDlpProcess.on('close', (code: number) => {
             clearTimeout(timeout);
+            clearInterval(keepaliveInterval);
             if (code === 0) {
               sendProgress(downloadId, {
                 status: 'finalizing',
