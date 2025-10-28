@@ -44,10 +44,12 @@ for arg in "$@"; do
             echo "  --update-ytdlp     Update yt-dlp to latest version (for YouTube download fixes)"
             echo "  --help, -h         Show this help message"
             echo ""
-            echo "Default behavior (no flags): Update existing installation without recreating venv"
+            echo "Default behavior (no flags): Fast update (preserves venv and node_modules)"
             echo ""
-            echo "Note: yt-dlp is only updated during --clean-install or with --update-ytdlp flag."
-            echo "      YouTube downloads may break if yt-dlp is outdated. Update regularly!"
+            echo "Notes:"
+            echo "  - Regular updates skip npm install and yt-dlp updates for speed"
+            echo "  - Use --clean-install if package.json changed or things are broken"
+            echo "  - Use --update-ytdlp when YouTube downloads stop working"
             exit 0
             ;;
         *)
@@ -328,15 +330,24 @@ echo ""
 # Step 5: Install backend dependencies
 # ============================================
 echo "=========================================="
-echo "📦 Step 5: Installing Backend Dependencies"
+echo "📦 Step 5: Backend Dependencies"
 echo "=========================================="
 echo ""
 
 cd "$BACKEND_DIR"
 if [ -f "package.json" ]; then
-    echo "Running npm install..."
-    sudo -u "$ACTUAL_USER" npm install --production
-    echo -e "${GREEN}✅ Backend dependencies installed${NC}"
+    # Only install dependencies if:
+    # 1. Clean install requested, OR
+    # 2. node_modules doesn't exist (fresh install)
+    if [ "$CLEAN_INSTALL" = true ] || [ ! -d "node_modules" ]; then
+        echo "Running npm install..."
+        sudo -u "$ACTUAL_USER" npm install --production
+        echo -e "${GREEN}✅ Backend dependencies installed${NC}"
+    else
+        echo -e "${BLUE}ℹ️  Skipping npm install (node_modules exists)${NC}"
+        echo "   Dependencies are preserved during updates"
+        echo "   Use --clean-install if dependencies changed"
+    fi
 else
     echo -e "${YELLOW}⚠ No package.json found${NC}"
 fi
