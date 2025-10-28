@@ -284,6 +284,10 @@ router.post('/download-youtube', async (req, res) => {
           '--retries', '5',
           '--fragment-retries', '5',
           '--skip-unavailable-fragments',
+          // Workaround for YouTube SABR streaming and signature issues
+          '--extractor-args', 'youtube:player_client=android,web',
+          '--extractor-args', 'youtube:player_skip=webpage,configs',
+          '--no-check-certificate',
           '--output', outputTemplate,
           url
         ];
