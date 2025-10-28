@@ -10,6 +10,7 @@ const router = express_1.default.Router();
 const defaultSettings = {
     audioOutputMode: 'browser',
     defaultVolume: 70,
+    startupVolume: 50,
     fadeInDuration: 2,
     fadeOutDuration: 3,
     crossfadeDuration: 5,
@@ -57,7 +58,19 @@ router.put('/', async (req, res) => {
         const newSettings = { ...defaultSettings, ...req.body };
         await saveSettings(newSettings);
         res.json(newSettings);
+        // Detailed debug logging
         console.log('⚙️ [SETTINGS] Settings updated successfully');
+        console.log('📊 [SETTINGS] Audio Settings:', {
+            audioOutputMode: newSettings.audioOutputMode,
+            defaultVolume: newSettings.defaultVolume,
+            startupVolume: newSettings.startupVolume
+        });
+        console.log('🎛️ [SETTINGS] RFID Settings:', {
+            rfidSameCardBehavior: newSettings.rfidSameCardBehavior,
+            rfidAutoPlayOnScan: newSettings.rfidAutoPlayOnScan,
+            rfidCardDebounceMs: newSettings.rfidCardDebounceMs
+        });
+        console.log('💾 [SETTINGS] Settings saved to:', settingsPath);
     }
     catch (error) {
         console.error('Error saving settings:', error);
@@ -76,7 +89,8 @@ router.patch('/:key', async (req, res) => {
         settings[key] = value;
         await saveSettings(settings);
         res.json({ key, value, updated: true });
-        console.log(`⚙️ [SETTINGS] Updated ${key} = ${value}`);
+        console.log(`⚙️ [SETTINGS] Updated ${key} = ${JSON.stringify(value)}`);
+        console.log(`💾 [SETTINGS] Settings file updated at: ${settingsPath}`);
     }
     catch (error) {
         console.error(`Error updating setting ${req.params.key}:`, error);
@@ -138,11 +152,23 @@ async function loadSettings() {
         const data = await promises_1.default.readFile(settingsPath, 'utf8');
         const settings = JSON.parse(data);
         // Merge with defaults to ensure all required fields exist
-        return { ...defaultSettings, ...settings };
+        const mergedSettings = { ...defaultSettings, ...settings };
+        console.log('📖 [SETTINGS] Loaded settings from:', settingsPath);
+        console.log('📊 [SETTINGS] Audio Settings:', {
+            audioOutputMode: mergedSettings.audioOutputMode,
+            defaultVolume: mergedSettings.defaultVolume,
+            startupVolume: mergedSettings.startupVolume
+        });
+        return mergedSettings;
     }
     catch (error) {
         // If file doesn't exist or is invalid, return defaults
         console.log('⚙️ [SETTINGS] Using default settings (file not found or invalid)');
+        console.log('📊 [SETTINGS] Default Audio Settings:', {
+            audioOutputMode: defaultSettings.audioOutputMode,
+            defaultVolume: defaultSettings.defaultVolume,
+            startupVolume: defaultSettings.startupVolume
+        });
         return defaultSettings;
     }
 }
@@ -151,5 +177,8 @@ async function saveSettings(settings) {
     await promises_1.default.mkdir(path_1.default.dirname(settingsPath), { recursive: true });
     // Write settings to file
     await promises_1.default.writeFile(settingsPath, JSON.stringify(settings, null, 2));
+    // Verify the file was written
+    const fileStats = await promises_1.default.stat(settingsPath);
+    console.log(`✅ [SETTINGS] File written successfully (${fileStats.size} bytes) at ${new Date().toISOString()}`);
 }
 exports.default = router;

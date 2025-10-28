@@ -119,141 +119,145 @@ export const NowPlaying = memo(function NowPlaying({
             </div>
 
             {/* Controls */}
-            <div className="flex items-center space-x-3">
-              {/* Secondary Controls */}
-              <motion.div
-                variants={buttonPulse}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onShuffleToggle}
-                  className={`glass-card h-10 w-10 ${isShuffled ? 'bg-blue-500/20' : ''}`}
+            <div className="flex flex-col items-center space-y-4 w-full max-w-md">
+              {/* Playback Controls Row */}
+              <div className="flex items-center space-x-3">
+                {/* Secondary Controls */}
+                <motion.div
+                  variants={buttonPulse}
+                  whileHover="hover"
+                  whileTap="tap"
                 >
-                  <motion.div
-                    animate={isShuffled ? { rotate: [0, 10, -10, 0] } : {}}
-                    transition={{ duration: 0.5 }}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onShuffleToggle}
+                    className={`glass-card h-10 w-10 ${isShuffled ? 'bg-blue-500/20' : ''}`}
                   >
-                    <Shuffle className="w-4 h-4" />
-                  </motion.div>
-                </Button>
-              </motion.div>
+                    <motion.div
+                      animate={isShuffled ? { rotate: [0, 10, -10, 0] } : {}}
+                      transition={{ duration: 0.5 }}
+                    >
+                      <Shuffle className="w-4 h-4" />
+                    </motion.div>
+                  </Button>
+                </motion.div>
 
-              <motion.div
-                variants={buttonPulse}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onPrevious}
-                  className="glass-card h-12 w-12"
+                <motion.div
+                  variants={buttonPulse}
+                  whileHover="hover"
+                  whileTap="tap"
                 >
-                  <SkipBack className="w-5 h-5" />
-                </Button>
-              </motion.div>
-              
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                animate={playbackState.isPlaying ? { 
-                  boxShadow: [
-                    "0 0 0 0 rgba(59, 130, 246, 0.4)",
-                    "0 0 0 10px rgba(59, 130, 246, 0)",
-                    "0 0 0 0 rgba(59, 130, 246, 0)"
-                  ]
-                } : {}}
-                transition={{ 
-                  repeat: playbackState.isPlaying ? Infinity : 0,
-                  duration: 2
-                }}
-              >
-                <Button
-                  onClick={playbackState.isPlaying ? onPause : onPlay}
-                  className="h-16 w-16 rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg"
-                >
-                  <motion.div
-                    key={playbackState.isPlaying ? 'pause' : 'play'}
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ duration: 0.3, ease: "easeOut" }}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onPrevious}
+                    className="glass-card h-12 w-12"
                   >
-                    {playbackState.isPlaying ? (
-                      <Pause className="w-8 h-8" />
-                    ) : (
-                      <Play className="w-8 h-8 ml-1" />
-                    )}
-                  </motion.div>
-                </Button>
-              </motion.div>
-              
-              <motion.div
-                variants={buttonPulse}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onNext}
-                  className="glass-card h-12 w-12"
-                >
-                  <SkipForward className="w-5 h-5" />
-                </Button>
-              </motion.div>
+                    <SkipBack className="w-5 h-5" />
+                  </Button>
+                </motion.div>
 
-              <motion.div
-                variants={buttonPulse}
-                whileHover="hover"
-                whileTap="tap"
-              >
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={onRepeatModeChange}
-                  className={`glass-card h-10 w-10 relative ${
-                    repeatMode === 'off' 
-                      ? '' 
-                      : repeatMode === 'one'
-                        ? 'bg-purple-500/30 border border-purple-400/50'
-                        : 'bg-blue-500/30 border border-blue-400/50'
-                  }`}
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  animate={playbackState.isPlaying ? {
+                    boxShadow: [
+                      "0 0 0 0 rgba(59, 130, 246, 0.4)",
+                      "0 0 0 10px rgba(59, 130, 246, 0)",
+                      "0 0 0 0 rgba(59, 130, 246, 0)"
+                    ]
+                  } : {}}
+                  transition={{
+                    repeat: playbackState.isPlaying ? Infinity : 0,
+                    duration: 2
+                  }}
                 >
-                  <motion.div
-                    animate={repeatMode !== 'off' ? { rotate: 360 } : {}}
-                    transition={{ duration: 0.6 }}
-                    className="relative"
+                  <Button
+                    onClick={playbackState.isPlaying ? onPause : onPlay}
+                    className="h-16 w-16 rounded-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 shadow-lg"
                   >
-                    <Repeat className={`w-4 h-4 ${
-                      repeatMode === 'off' 
-                        ? 'text-slate-400' 
+                    <motion.div
+                      key={playbackState.isPlaying ? 'pause' : 'play'}
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
+                    >
+                      {playbackState.isPlaying ? (
+                        <Pause className="w-8 h-8" />
+                      ) : (
+                        <Play className="w-8 h-8 ml-1" />
+                      )}
+                    </motion.div>
+                  </Button>
+                </motion.div>
+
+                <motion.div
+                  variants={buttonPulse}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onNext}
+                    className="glass-card h-12 w-12"
+                  >
+                    <SkipForward className="w-5 h-5" />
+                  </Button>
+                </motion.div>
+
+                <motion.div
+                  variants={buttonPulse}
+                  whileHover="hover"
+                  whileTap="tap"
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={onRepeatModeChange}
+                    className={`glass-card h-10 w-10 relative ${
+                      repeatMode === 'off'
+                        ? ''
                         : repeatMode === 'one'
-                          ? 'text-purple-300'
-                          : 'text-blue-300'
-                    }`} />
-                    
-                    {/* Show "1" indicator for repeat one mode */}
-                    {repeatMode === 'one' && (
-                      <motion.div
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0, opacity: 0 }}
-                        className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full flex items-center justify-center"
-                      >
-                        <span className="text-[8px] font-bold text-white">1</span>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                </Button>
-              </motion.div>
+                          ? 'bg-purple-500/30 border border-purple-400/50'
+                          : 'bg-blue-500/30 border border-blue-400/50'
+                    }`}
+                  >
+                    <motion.div
+                      animate={repeatMode !== 'off' ? { rotate: 360 } : {}}
+                      transition={{ duration: 0.6 }}
+                      className="relative"
+                    >
+                      <Repeat className={`w-4 h-4 ${
+                        repeatMode === 'off'
+                          ? 'text-slate-400'
+                          : repeatMode === 'one'
+                            ? 'text-purple-300'
+                            : 'text-blue-300'
+                      }`} />
 
+                      {/* Show "1" indicator for repeat one mode */}
+                      {repeatMode === 'one' && (
+                        <motion.div
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0, opacity: 0 }}
+                          className="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full flex items-center justify-center"
+                        >
+                          <span className="text-[8px] font-bold text-white">1</span>
+                        </motion.div>
+                      )}
+                    </motion.div>
+                  </Button>
+                </motion.div>
+              </div>
+
+              {/* Volume Controls Row */}
               <VolumeControl
                 volume={volume}
                 onVolumeChange={onVolumeChange}
-                className="ml-2"
+                className="w-full"
               />
             </div>
 

@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Settings as SettingsIcon, 
-  Volume2, 
-  Clock, 
-  Wifi, 
-  Download, 
-  Power, 
-  Monitor, 
+import {
+  Settings as SettingsIcon,
+  Volume2,
+  Clock,
+  Wifi,
+  Download,
+  Power,
+  Monitor,
   Headphones,
   Timer,
   VolumeX,
   RefreshCw,
-  Database,
+  Music,
   HardDrive,
   Cpu,
   Thermometer,
@@ -44,6 +44,7 @@ interface AppSettings {
   // Audio Settings
   audioOutputMode: 'browser' | 'hardware' | 'both';
   defaultVolume: number;
+  startupVolume: number;
   fadeInDuration: number;
   fadeOutDuration: number;
   crossfadeDuration: number;
@@ -86,6 +87,7 @@ interface AppSettings {
 const defaultSettings: AppSettings = {
   audioOutputMode: 'browser',
   defaultVolume: 70,
+  startupVolume: 50,
   fadeInDuration: 2,
   fadeOutDuration: 3,
   crossfadeDuration: 5,
@@ -303,7 +305,7 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
       </div>
 
       <Tabs defaultValue="audio" className="w-full">
-        <TabsList className="grid w-full grid-cols-6 bg-gray-800/50 border border-gray-700/50">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 bg-gray-800/50 border border-gray-700/50 gap-1">
           <TabsTrigger value="audio" className="data-[state=active]:bg-blue-600/50">Audio</TabsTrigger>
           <TabsTrigger value="rfid" className="data-[state=active]:bg-blue-600/50">RFID</TabsTrigger>
           <TabsTrigger value="timer" className="data-[state=active]:bg-blue-600/50">Timer</TabsTrigger>
@@ -313,7 +315,7 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
         </TabsList>
 
         {/* Audio Settings */}
-        <TabsContent value="audio" className="space-y-6">
+        <TabsContent value="audio" className="space-y-6 mt-8">
           <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-blue-400">
@@ -360,6 +362,18 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
                 <Slider
                   value={[settings.defaultVolume]}
                   onValueChange={([value]) => updateSetting('defaultVolume', value)}
+                  max={100}
+                  step={1}
+                  className="w-full"
+                />
+              </div>
+
+              <div>
+                <Label className="text-gray-300 mb-3 block">Startup Volume: {settings.startupVolume}%</Label>
+                <p className="text-sm text-gray-400 mb-3">Volume level to use when system starts up (prevents loud blasts after reboot)</p>
+                <Slider
+                  value={[settings.startupVolume]}
+                  onValueChange={([value]) => updateSetting('startupVolume', value)}
                   max={100}
                   step={1}
                   className="w-full"
@@ -429,7 +443,7 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
         </TabsContent>
 
         {/* RFID Settings */}
-        <TabsContent value="rfid" className="space-y-6">
+        <TabsContent value="rfid" className="space-y-6 mt-8">
           <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-blue-400">
@@ -528,7 +542,7 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
         </TabsContent>
 
         {/* Sleep Timer Settings */}
-        <TabsContent value="timer" className="space-y-6">
+        <TabsContent value="timer" className="space-y-6 mt-8">
           <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-blue-400">
@@ -616,7 +630,7 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
         </TabsContent>
 
         {/* System Settings */}
-        <TabsContent value="system" className="space-y-6">
+        <TabsContent value="system" className="space-y-6 mt-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* System Info */}
             <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
@@ -760,7 +774,7 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
         </TabsContent>
 
         {/* Network Settings */}
-        <TabsContent value="network" className="space-y-6">
+        <TabsContent value="network" className="space-y-6 mt-8">
           <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-blue-400">
@@ -838,11 +852,11 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
         </TabsContent>
 
         {/* Library Settings */}
-        <TabsContent value="library" className="space-y-6">
+        <TabsContent value="library" className="space-y-6 mt-8">
           <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-blue-400">
-                <Database className="w-5 h-5" />
+                <Music className="w-5 h-5" />
                 Library Management
               </CardTitle>
             </CardHeader>

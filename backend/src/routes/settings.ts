@@ -7,6 +7,7 @@ const router = express.Router();
 interface AppSettings {
   audioOutputMode: 'browser' | 'hardware' | 'both';
   defaultVolume: number;
+  startupVolume: number;
   fadeInDuration: number;
   fadeOutDuration: number;
   crossfadeDuration: number;
@@ -40,6 +41,7 @@ interface AppSettings {
 const defaultSettings: AppSettings = {
   audioOutputMode: 'browser',
   defaultVolume: 70,
+  startupVolume: 50,
   fadeInDuration: 2,
   fadeOutDuration: 3,
   crossfadeDuration: 5,
@@ -89,7 +91,20 @@ router.put('/', async (req, res) => {
     const newSettings = { ...defaultSettings, ...req.body };
     await saveSettings(newSettings);
     res.json(newSettings);
+
+    // Detailed debug logging
     console.log('⚙️ [SETTINGS] Settings updated successfully');
+    console.log('📊 [SETTINGS] Audio Settings:', {
+      audioOutputMode: newSettings.audioOutputMode,
+      defaultVolume: newSettings.defaultVolume,
+      startupVolume: newSettings.startupVolume
+    });
+    console.log('🎛️ [SETTINGS] RFID Settings:', {
+      rfidSameCardBehavior: newSettings.rfidSameCardBehavior,
+      rfidAutoPlayOnScan: newSettings.rfidAutoPlayOnScan,
+      rfidCardDebounceMs: newSettings.rfidCardDebounceMs
+    });
+    console.log('💾 [SETTINGS] Settings saved to:', settingsPath);
   } catch (error) {
     console.error('Error saving settings:', error);
     res.status(500).json({ error: 'Failed to save settings' });
@@ -101,18 +116,19 @@ router.patch('/:key', async (req, res) => {
   try {
     const { key } = req.params;
     const { value } = req.body;
-    
+
     const settings = await loadSettings();
-    
+
     if (!(key in settings)) {
       return res.status(400).json({ error: `Invalid setting key: ${key}` });
     }
-    
+
     (settings as any)[key] = value;
     await saveSettings(settings);
-    
+
     res.json({ key, value, updated: true });
-    console.log(`⚙️ [SETTINGS] Updated ${key} = ${value}`);
+    console.log(`⚙️ [SETTINGS] Updated ${key} = ${JSON.stringify(value)}`);
+    console.log(`💾 [SETTINGS] Settings file updated at: ${settingsPath}`);
   } catch (error) {
     console.error(`Error updating setting ${req.params.key}:`, error);
     res.status(500).json({ error: 'Failed to update setting' });
@@ -175,15 +191,29 @@ async function loadSettings(): Promise<AppSettings> {
   try {
     // Ensure data directory exists
     await fs.mkdir(path.dirname(settingsPath), { recursive: true });
-    
+
     const data = await fs.readFile(settingsPath, 'utf8');
     const settings = JSON.parse(data);
-    
+
     // Merge with defaults to ensure all required fields exist
-    return { ...defaultSettings, ...settings };
+    const mergedSettings = { ...defaultSettings, ...settings };
+
+    console.log('📖 [SETTINGS] Loaded settings from:', settingsPath);
+    console.log('📊 [SETTINGS] Audio Settings:', {
+      audioOutputMode: mergedSettings.audioOutputMode,
+      defaultVolume: mergedSettings.defaultVolume,
+      startupVolume: mergedSettings.startupVolume
+    });
+
+    return mergedSettings;
   } catch (error) {
     // If file doesn't exist or is invalid, return defaults
     console.log('⚙️ [SETTINGS] Using default settings (file not found or invalid)');
+    console.log('📊 [SETTINGS] Default Audio Settings:', {
+      audioOutputMode: defaultSettings.audioOutputMode,
+      defaultVolume: defaultSettings.defaultVolume,
+      startupVolume: defaultSettings.startupVolume
+    });
     return defaultSettings;
   }
 }
@@ -191,9 +221,13 @@ async function loadSettings(): Promise<AppSettings> {
 async function saveSettings(settings: AppSettings): Promise<void> {
   // Ensure data directory exists
   await fs.mkdir(path.dirname(settingsPath), { recursive: true });
-  
+
   // Write settings to file
   await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2));
+
+  // Verify the file was written
+  const fileStats = await fs.stat(settingsPath);
+  console.log(`✅ [SETTINGS] File written successfully (${fileStats.size} bytes) at ${new Date().toISOString()}`);
 }
 
 export default router;

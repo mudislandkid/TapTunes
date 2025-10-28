@@ -8,7 +8,21 @@ interface UseAudioPlayerProps {
 }
 
 export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
-  const [volume, setVolume] = useState(75)
+  // Load startup volume from settings (defaults to 50% if not set)
+  const getStartupVolume = () => {
+    try {
+      const savedSettings = localStorage.getItem('taptunes-settings')
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings)
+        return settings.startupVolume ?? 50
+      }
+    } catch (error) {
+      console.warn('Failed to load startup volume from settings:', error)
+    }
+    return 50 // Default startup volume
+  }
+
+  const [volume, setVolume] = useState(getStartupVolume())
   const [isShuffled, setIsShuffled] = useState(false)
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('off')
   const [playbackMode, setPlaybackMode] = useState<PlaybackMode>('hardware')
@@ -563,6 +577,32 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
 
     return () => clearInterval(interval)
   }, [playbackMode, browserControlledState])
+
+  // Set startup volume on mount
+  useEffect(() => {
+    const initializeVolume = async () => {
+      const startupVolume = getStartupVolume()
+      console.log(`🔊 [FRONTEND] Setting startup volume to ${startupVolume}%`)
+
+      // Set browser audio element volume
+      if (audioRef.current) {
+        audioRef.current.volume = startupVolume / 100
+      }
+
+      // Set hardware volume via backend
+      try {
+        await fetch(`${apiBase}/audio/volume`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ volume: startupVolume })
+        })
+      } catch (error) {
+        console.warn('Failed to set hardware startup volume:', error)
+      }
+    }
+
+    initializeVolume()
+  }, []) // Only run once on mount
 
   // Audio element event handlers
   const audioElementProps = {

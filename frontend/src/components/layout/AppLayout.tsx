@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Music, Sun, Moon, Radio, Settings as SettingsIcon } from 'lucide-react'
+import { Music, Sun, Moon, Radio, Settings as SettingsIcon, Library } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { staggerContainer, fadeInUp, slideInLeft, buttonPulse, springConfig } from '../../lib/animations'
@@ -16,7 +16,7 @@ interface AppLayoutProps {
 
 const tabs: AppTab[] = [
   { id: 'player', label: 'Player', icon: Music },
-  { id: 'library', label: 'Library', icon: Radio },
+  { id: 'library', label: 'Library', icon: Library },
   { id: 'rfid', label: 'Cards', icon: Radio },
   { id: 'settings', label: 'Settings', icon: SettingsIcon },
 ]

@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Volume2, VolumeX, Volume1 } from 'lucide-react'
+import { Plus, Minus } from 'lucide-react'
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
+import { Input } from "@/components/ui/input"
 import { motion } from 'framer-motion'
-import { buttonPulse, scaleIn, springConfig } from '../lib/animations'
+import { scaleIn } from '../lib/animations'
 
 interface VolumeControlProps {
   volume: number // 0 to 100
@@ -12,154 +12,123 @@ interface VolumeControlProps {
 }
 
 export default function VolumeControl({ volume, onVolumeChange, className }: VolumeControlProps) {
-  const [showSlider, setShowSlider] = useState(false)
-  const [isMuted, setIsMuted] = useState(false)
-  const [previousVolume, setPreviousVolume] = useState(volume)
-  const [sliderTimeout, setSliderTimeout] = useState<ReturnType<typeof setTimeout> | null>(null)
-
-  const getVolumeIcon = () => {
-    if (isMuted || volume === 0) return VolumeX
-    if (volume < 50) return Volume1
-    return Volume2
-  }
-
-  const handleMute = () => {
-    if (isMuted) {
-      setIsMuted(false)
-      onVolumeChange(previousVolume)
-    } else {
-      setPreviousVolume(volume)
-      setIsMuted(true)
-      onVolumeChange(0)
-    }
-  }
-
-  const handleVolumeClick = () => {
-    setShowSlider(!showSlider)
-    
-    // Clear existing timeout
-    if (sliderTimeout) {
-      clearTimeout(sliderTimeout)
-    }
-    
-    // Auto-hide slider after 3 seconds of no interaction
-    if (!showSlider) {
-      const timeout = setTimeout(() => {
-        setShowSlider(false)
-      }, 3000)
-      setSliderTimeout(timeout)
-    }
-  }
-
-  const handleMouseEnter = () => {
-    setShowSlider(true)
-    if (sliderTimeout) {
-      clearTimeout(sliderTimeout)
-      setSliderTimeout(null)
-    }
-  }
-
-  const handleMouseLeave = () => {
-    if (!sliderTimeout) {
-      setShowSlider(false)
-    }
-  }
+  const [inputValue, setInputValue] = useState(Math.round(volume).toString())
 
   const handleVolumeChange = (newVolume: number) => {
-    setIsMuted(false)
-    onVolumeChange(newVolume)
+    // Clamp between 0 and 100
+    const clampedVolume = Math.max(0, Math.min(100, newVolume))
+    onVolumeChange(clampedVolume)
+    setInputValue(Math.round(clampedVolume).toString())
   }
 
-  const handleSliderChange = (value: number[]) => {
-    handleVolumeChange(value[0])
+  const handlePresetClick = (preset: number) => {
+    handleVolumeChange(preset)
   }
 
-  const VolumeIcon = getVolumeIcon()
+  const handleIncrement = () => {
+    handleVolumeChange(volume + 5)
+  }
+
+  const handleDecrement = () => {
+    handleVolumeChange(volume - 5)
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setInputValue(value)
+
+    // Only update volume if it's a valid number
+    const numValue = parseInt(value)
+    if (!isNaN(numValue)) {
+      handleVolumeChange(numValue)
+    }
+  }
+
+  const handleInputBlur = () => {
+    // Reset to current volume if input is invalid
+    const numValue = parseInt(inputValue)
+    if (isNaN(numValue)) {
+      setInputValue(Math.round(volume).toString())
+    }
+  }
+
+  // Preset buttons data
+  const presets = [0, 25, 50, 75, 100]
 
   return (
-    <motion.div 
-      className={`relative ${className}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+    <motion.div
+      className={`flex flex-col space-y-2 ${className}`}
       variants={scaleIn}
       initial="initial"
       animate="animate"
     >
-      <motion.div
-        variants={buttonPulse}
-        whileHover="hover"
-        whileTap="tap"
-      >
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleMute}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            handleVolumeClick()
-          }}
-          className="glass-card h-12 w-12"
-          title="Left-click to mute/unmute, right-click for volume slider"
-        >
-          <motion.div
-            key={VolumeIcon.name}
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.2 }}
-          >
-            <VolumeIcon className="w-5 h-5" />
-          </motion.div>
-        </Button>
-      </motion.div>
-
-      {/* Volume Slider */}
-      <motion.div
-        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-        animate={{ 
-          opacity: showSlider ? 1 : 0,
-          y: showSlider ? 0 : 10,
-          scale: showSlider ? 1 : 0.95
-        }}
-        transition={{ duration: 0.2, ...springConfig }}
-        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-4 glass-card"
-        style={{ pointerEvents: showSlider ? 'auto' : 'none' }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        <motion.div 
-          className="flex flex-col items-center space-y-3"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: showSlider ? 1 : 0 }}
-          transition={{ delay: showSlider ? 0.1 : 0 }}
-        >
-          <motion.span 
-            className="text-xs text-slate-300"
-            key={volume}
-            initial={{ scale: 1.1 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.1 }}
-          >
-            {Math.round(volume)}%
-          </motion.span>
-          
-          <div className="h-32 flex items-center">
-            <motion.div
-              initial={{ opacity: 0.7 }}
-              animate={{ opacity: 1 }}
-              whileHover={{ scale: 1.02 }}
+      {/* Quick preset buttons - compact horizontal row */}
+      <div className="flex items-center justify-between gap-1.5">
+        {presets.map((preset) => (
+          <motion.div key={preset} whileTap={{ scale: 0.95 }} className="flex-1">
+            <Button
+              variant={Math.round(volume) === preset ? "default" : "outline"}
+              size="sm"
+              onClick={() => handlePresetClick(preset)}
+              className={`
+                w-full h-10 text-sm font-semibold px-2
+                ${Math.round(volume) === preset
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                  : 'glass-card hover:bg-slate-700'
+                }
+              `}
             >
-              <Slider
-                value={[volume]}
-                onValueChange={handleSliderChange}
-                max={100}
-                step={1}
-                orientation="vertical"
-                className="h-28"
-              />
-            </motion.div>
-          </div>
+              {preset}%
+            </Button>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Fine adjustment controls - compact row */}
+      <div className="flex items-center gap-2">
+        {/* Minus button */}
+        <motion.div whileTap={{ scale: 0.95 }}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDecrement}
+            className="glass-card h-10 w-10 p-0"
+            title="Decrease volume by 5%"
+          >
+            <Minus className="w-4 h-4" />
+          </Button>
         </motion.div>
-      </motion.div>
+
+        {/* Custom input */}
+        <div className="flex-1 relative">
+          <Input
+            type="number"
+            min="0"
+            max="100"
+            value={inputValue}
+            onChange={handleInputChange}
+            onBlur={handleInputBlur}
+            className="glass-card h-10 text-center text-base font-semibold pr-7"
+            placeholder="0-100"
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs pointer-events-none">
+            %
+          </span>
+        </div>
+
+        {/* Plus button */}
+        <motion.div whileTap={{ scale: 0.95 }}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleIncrement}
+            className="glass-card h-10 w-10 p-0"
+            title="Increase volume by 5%"
+          >
+            <Plus className="w-4 h-4" />
+          </Button>
+        </motion.div>
+      </div>
     </motion.div>
   )
 }
