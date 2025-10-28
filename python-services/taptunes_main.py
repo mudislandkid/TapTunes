@@ -30,7 +30,10 @@ class TapTunesService:
         self.running = True
 
         # Determine installation directory
-        self.install_dir = Path.home() / 'taptunes'
+        # Use environment variable if set, otherwise use hardcoded path
+        # This is needed because the service runs as root but installs to /home/greg
+        install_base = os.getenv('TAPTUNES_INSTALL_DIR', '/home/greg/taptunes')
+        self.install_dir = Path(install_base)
         self.backend_dir = self.install_dir / 'backend'
         self.python_services_dir = self.install_dir / 'python-services'
         self.venv_dir = self.install_dir / 'venv'
