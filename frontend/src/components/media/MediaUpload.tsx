@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { BatchMetadataDialog } from './BatchMetadataDialog'
+import { UploadDestinationDialog } from './UploadDestinationDialog'
 import type { UploadProgress } from '../../types/media'
 
 interface MediaUploadProps {
@@ -30,6 +31,14 @@ interface YouTubeProgress {
   }
 }
 
+interface UploadDestination {
+  folderId?: string
+  folderName?: string
+  albumName?: string
+  playlistId?: string
+  playlistName?: string
+}
+
 export const MediaUpload = memo(function MediaUpload({
   apiBase,
   currentFolder,
@@ -45,6 +54,8 @@ export const MediaUpload = memo(function MediaUpload({
   const [downloadError, setDownloadError] = useState('')
   const [youtubeProgress, setYoutubeProgress] = useState<YouTubeProgress | null>(null)
   const [isBatchMetadataDialogOpen, setIsBatchMetadataDialogOpen] = useState(false)
+  const [isDestinationDialogOpen, setIsDestinationDialogOpen] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const eventSourceRef = useRef<EventSource | null>(null)
@@ -52,11 +63,21 @@ export const MediaUpload = memo(function MediaUpload({
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (files) {
-      handleFileUpload(Array.from(files))
+      // Store files and show destination dialog
+      setPendingFiles(Array.from(files))
+      setIsDestinationDialogOpen(true)
     }
   }
 
-  const handleFileUpload = async (files: File[]) => {
+  const handleDestinationConfirm = (destination: UploadDestination) => {
+    setIsDestinationDialogOpen(false)
+    if (pendingFiles.length > 0) {
+      handleFileUpload(pendingFiles, destination)
+      setPendingFiles([])
+    }
+  }
+
+  const handleFileUpload = async (files: File[], destination: UploadDestination = {}) => {
     const newUploads: UploadProgress[] = files.map(file => ({
       fileName: file.name,
       progress: 0,
@@ -68,13 +89,28 @@ export const MediaUpload = memo(function MediaUpload({
 
     try {
       const formData = new FormData()
-      
+
       files.forEach(file => {
         formData.append('files', file)
       })
-      
-      if (currentFolder) {
+
+      // Add destination information
+      if (destination.folderId) {
+        formData.append('folderId', destination.folderId)
+      } else if (destination.folderName) {
+        formData.append('folderName', destination.folderName)
+      } else if (currentFolder) {
         formData.append('folderId', currentFolder)
+      }
+
+      if (destination.albumName) {
+        formData.append('albumName', destination.albumName)
+      }
+
+      if (destination.playlistId) {
+        formData.append('playlistId', destination.playlistId)
+      } else if (destination.playlistName) {
+        formData.append('playlistName', destination.playlistName)
       }
 
       const xhr = new XMLHttpRequest()
@@ -512,6 +548,14 @@ export const MediaUpload = memo(function MediaUpload({
         onOpenChange={setIsBatchMetadataDialogOpen}
         apiBase={apiBase}
         onRefreshLibrary={onRefreshLibrary}
+      />
+
+      {/* Upload Destination Dialog */}
+      <UploadDestinationDialog
+        open={isDestinationDialogOpen}
+        onOpenChange={setIsDestinationDialogOpen}
+        onConfirm={handleDestinationConfirm}
+        apiBase={apiBase}
       />
     </>
   )

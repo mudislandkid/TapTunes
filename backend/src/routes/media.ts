@@ -117,8 +117,46 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const folderId = req.body.folderId || null;
+    // Handle destination parameters
+    let folderId = req.body.folderId || null;
+    const folderName = req.body.folderName;
+    const albumName = req.body.albumName;
+    const playlistId = req.body.playlistId;
+    const playlistName = req.body.playlistName;
+
+    // Create folder if folderName provided
+    if (folderName) {
+      console.log(`📁 [UPLOAD] Creating new folder: ${folderName}`);
+      try {
+        const newFolder = await mediaService.createFolder({ name: folderName });
+        folderId = newFolder.id;
+        console.log(`✅ [UPLOAD] Folder created with ID: ${folderId}`);
+      } catch (error) {
+        console.error('❌ [UPLOAD] Failed to create folder:', error);
+        return res.status(500).json({ error: 'Failed to create folder' });
+      }
+    }
+
+    // Create playlist if playlistName provided
+    let targetPlaylistId = playlistId;
+    if (playlistName) {
+      console.log(`🎵 [UPLOAD] Creating new playlist: ${playlistName}`);
+      try {
+        const newPlaylist = await mediaService.createPlaylist({
+          name: playlistName,
+          isPublic: false,
+          tags: []
+        });
+        targetPlaylistId = newPlaylist.id;
+        console.log(`✅ [UPLOAD] Playlist created with ID: ${targetPlaylistId}`);
+      } catch (error) {
+        console.error('❌ [UPLOAD] Failed to create playlist:', error);
+        // Continue with upload even if playlist creation fails
+      }
+    }
+
     const uploadResults = [];
+    const uploadedTrackIds: string[] = [];
 
     console.log(`🎵 [UPLOAD] Processing ${req.files.length} files, folderId: ${folderId || 'root'}`);
 
@@ -160,12 +198,12 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         const extractedDuration = Math.round(metadata.format.duration || 0);
         console.log(`⏱️ [UPLOAD] Duration for ${file.originalname}: ${extractedDuration} seconds`);
         
-        // Create track record
+        // Create track record with optional album override
         console.log(`💾 [UPLOAD] Creating track record in database...`);
         const track = await mediaService.createTrack({
           title: metadata.common.title || path.basename(file.originalname, path.extname(file.originalname)),
           artist: metadata.common.artist || 'Unknown Artist',
-          album: metadata.common.album || 'Unknown Album',
+          album: albumName || metadata.common.album || 'Unknown Album', // Use albumName if provided
           duration: extractedDuration,
           genre: metadata.common.genre?.join(', ') || undefined,
           year: metadata.common.year || undefined,
@@ -178,6 +216,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
         });
 
         console.log(`✅ [UPLOAD] Track created successfully: ${track.id}`);
+
+        // Store track ID for playlist association
+        uploadedTrackIds.push(track.id);
 
         uploadResults.push({
           success: true,
@@ -213,12 +254,28 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 
     console.log(`\n✅ [UPLOAD] Upload completed: ${successCount} succeeded, ${errorCount} failed`);
 
+    // Add uploaded tracks to playlist if specified
+    if (targetPlaylistId && uploadedTrackIds.length > 0) {
+      console.log(`🎵 [UPLOAD] Adding ${uploadedTrackIds.length} tracks to playlist ${targetPlaylistId}`);
+      try {
+        for (const trackId of uploadedTrackIds) {
+          await mediaService.addTrackToPlaylist(targetPlaylistId, trackId);
+        }
+        console.log(`✅ [UPLOAD] All tracks added to playlist successfully`);
+      } catch (error) {
+        console.error('❌ [UPLOAD] Failed to add tracks to playlist:', error);
+        // Don't fail the entire upload if playlist association fails
+      }
+    }
+
     res.json({
       message: 'Upload completed',
       results: uploadResults,
       totalFiles: req.files.length,
       successCount,
-      errorCount
+      errorCount,
+      folderId,
+      playlistId: targetPlaylistId
     });
 
   } catch (error) {
