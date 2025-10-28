@@ -70,33 +70,47 @@ export interface DatabaseRFIDCard {
 export class DatabaseService {
   private db: sqlite3.Database;
   private dbPath: string;
+  private readyPromise: Promise<void>;
 
   constructor() {
     const dbDir = path.join(process.cwd(), 'data');
     this.dbPath = path.join(dbDir, 'taptunes.db');
-    this.initialize();
+    this.readyPromise = this.initialize();
   }
 
-  private async initialize() {
+  private async initialize(): Promise<void> {
     try {
       // Ensure data directory exists
       await fs.mkdir(path.dirname(this.dbPath), { recursive: true });
-      
-      // Open database connection
-      this.db = new sqlite3.Database(this.dbPath, (err) => {
-        if (err) {
-          console.error('Error opening database:', err);
-        } else {
-          console.log('Connected to SQLite database');
-          this.createTables();
-        }
+
+      // Open database connection with promise
+      await new Promise<void>((resolve, reject) => {
+        this.db = new sqlite3.Database(this.dbPath, (err) => {
+          if (err) {
+            console.error('❌ [DB] Error opening database:', err);
+            reject(err);
+          } else {
+            console.log('✅ [DB] Connected to SQLite database');
+            resolve();
+          }
+        });
       });
+
+      // Create tables after connection is established
+      await this.createTables();
+      console.log('✅ [DB] Database initialization complete');
     } catch (error) {
-      console.error('Error initializing database:', error);
+      console.error('❌ [DB] Error initializing database:', error);
+      throw error;
     }
   }
 
-  private createTables() {
+  // Ensure database is ready before any operation
+  private async ensureReady(): Promise<void> {
+    await this.readyPromise;
+  }
+
+  private async createTables(): Promise<void> {
     const tables = [
       // Folders table
       `CREATE TABLE IF NOT EXISTS folders (
@@ -174,13 +188,10 @@ export class DatabaseService {
       )`
     ];
 
-    tables.forEach(sql => {
-      this.db.run(sql, (err) => {
-        if (err) {
-          console.error('Error creating table:', err);
-        }
-      });
-    });
+    // Create tables sequentially
+    for (const sql of tables) {
+      await this.runQuery(sql);
+    }
 
     // Create indexes for better performance
     const indexes = [
@@ -192,19 +203,15 @@ export class DatabaseService {
       'CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders (parent_id)'
     ];
 
-    indexes.forEach(sql => {
-      this.db.run(sql, (err) => {
-        if (err) {
-          console.error('Error creating index:', err);
-        }
-      });
-    });
+    for (const sql of indexes) {
+      await this.runQuery(sql);
+    }
 
     // Handle schema migrations for existing databases
-    this.handleMigrations();
+    await this.handleMigrations();
   }
 
-  private handleMigrations() {
+  private async handleMigrations(): Promise<void> {
     // Add thumbnail_path and source_url columns if they don't exist
     const migrations = [
       'ALTER TABLE tracks ADD COLUMN thumbnail_path TEXT',
@@ -214,13 +221,15 @@ export class DatabaseService {
       'ALTER TABLE rfid_cards ADD COLUMN assignment_id TEXT'
     ];
 
-    migrations.forEach(sql => {
-      this.db.run(sql, (err) => {
-        if (err && !err.message.includes('duplicate column')) {
+    for (const sql of migrations) {
+      try {
+        await this.runQuery(sql);
+      } catch (err: any) {
+        if (!err.message?.includes('duplicate column')) {
           console.error('Migration error:', err);
         }
-      });
-    });
+      }
+    }
   }
 
   // Helper method to run queries with promises
@@ -266,6 +275,8 @@ export class DatabaseService {
 
   // Track methods
   async createTrack(trackData: Omit<DatabaseTrack, 'id' | 'created_at' | 'updated_at'>): Promise<DatabaseTrack> {
+    await this.ensureReady();
+
     const now = new Date().toISOString();
     const track: DatabaseTrack = {
       id: this.generateId(),
@@ -307,6 +318,8 @@ export class DatabaseService {
     limit?: number;
     offset?: number;
   } = {}): Promise<DatabaseTrack[]> {
+    await this.ensureReady();
+
     let sql = 'SELECT * FROM tracks WHERE 1=1';
     const params: any[] = [];
 
@@ -436,6 +449,8 @@ export class DatabaseService {
 
   // Folder methods
   async createFolder(folderData: Omit<DatabaseFolder, 'id' | 'track_count' | 'created_at' | 'updated_at'>): Promise<DatabaseFolder> {
+    await this.ensureReady();
+
     const now = new Date().toISOString();
     const folder: DatabaseFolder = {
       id: this.generateId(),
@@ -485,6 +500,8 @@ export class DatabaseService {
 
   // Playlist methods
   async createPlaylist(playlistData: Omit<DatabasePlaylist, 'id' | 'track_count' | 'duration' | 'created_at' | 'updated_at'>): Promise<DatabasePlaylist> {
+    await this.ensureReady();
+
     const now = new Date().toISOString();
     const playlist: DatabasePlaylist = {
       id: this.generateId(),

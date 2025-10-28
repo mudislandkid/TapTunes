@@ -11,28 +11,39 @@ class DatabaseService {
     constructor() {
         const dbDir = path_1.default.join(process.cwd(), 'data');
         this.dbPath = path_1.default.join(dbDir, 'taptunes.db');
-        this.initialize();
+        this.readyPromise = this.initialize();
     }
     async initialize() {
         try {
             // Ensure data directory exists
             await promises_1.default.mkdir(path_1.default.dirname(this.dbPath), { recursive: true });
-            // Open database connection
-            this.db = new sqlite3_1.default.Database(this.dbPath, (err) => {
-                if (err) {
-                    console.error('Error opening database:', err);
-                }
-                else {
-                    console.log('Connected to SQLite database');
-                    this.createTables();
-                }
+            // Open database connection with promise
+            await new Promise((resolve, reject) => {
+                this.db = new sqlite3_1.default.Database(this.dbPath, (err) => {
+                    if (err) {
+                        console.error('❌ [DB] Error opening database:', err);
+                        reject(err);
+                    }
+                    else {
+                        console.log('✅ [DB] Connected to SQLite database');
+                        resolve();
+                    }
+                });
             });
+            // Create tables after connection is established
+            await this.createTables();
+            console.log('✅ [DB] Database initialization complete');
         }
         catch (error) {
-            console.error('Error initializing database:', error);
+            console.error('❌ [DB] Error initializing database:', error);
+            throw error;
         }
     }
-    createTables() {
+    // Ensure database is ready before any operation
+    async ensureReady() {
+        await this.readyPromise;
+    }
+    async createTables() {
         const tables = [
             // Folders table
             `CREATE TABLE IF NOT EXISTS folders (
@@ -105,13 +116,10 @@ class DatabaseService {
         color TEXT
       )`
         ];
-        tables.forEach(sql => {
-            this.db.run(sql, (err) => {
-                if (err) {
-                    console.error('Error creating table:', err);
-                }
-            });
-        });
+        // Create tables sequentially
+        for (const sql of tables) {
+            await this.runQuery(sql);
+        }
         // Create indexes for better performance
         const indexes = [
             'CREATE INDEX IF NOT EXISTS idx_tracks_folder_id ON tracks (folder_id)',
@@ -121,17 +129,13 @@ class DatabaseService {
             'CREATE INDEX IF NOT EXISTS idx_playlist_tracks_track_id ON playlist_tracks (track_id)',
             'CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders (parent_id)'
         ];
-        indexes.forEach(sql => {
-            this.db.run(sql, (err) => {
-                if (err) {
-                    console.error('Error creating index:', err);
-                }
-            });
-        });
+        for (const sql of indexes) {
+            await this.runQuery(sql);
+        }
         // Handle schema migrations for existing databases
-        this.handleMigrations();
+        await this.handleMigrations();
     }
-    handleMigrations() {
+    async handleMigrations() {
         // Add thumbnail_path and source_url columns if they don't exist
         const migrations = [
             'ALTER TABLE tracks ADD COLUMN thumbnail_path TEXT',
@@ -140,13 +144,16 @@ class DatabaseService {
             'ALTER TABLE rfid_cards ADD COLUMN assignment_type TEXT',
             'ALTER TABLE rfid_cards ADD COLUMN assignment_id TEXT'
         ];
-        migrations.forEach(sql => {
-            this.db.run(sql, (err) => {
-                if (err && !err.message.includes('duplicate column')) {
+        for (const sql of migrations) {
+            try {
+                await this.runQuery(sql);
+            }
+            catch (err) {
+                if (!err.message?.includes('duplicate column')) {
                     console.error('Migration error:', err);
                 }
-            });
-        });
+            }
+        }
     }
     // Helper method to run queries with promises
     runQuery(sql, params = []) {
@@ -190,6 +197,7 @@ class DatabaseService {
     }
     // Track methods
     async createTrack(trackData) {
+        await this.ensureReady();
         const now = new Date().toISOString();
         const track = {
             id: this.generateId(),
@@ -219,6 +227,7 @@ class DatabaseService {
         return track;
     }
     async getTracks(filters = {}) {
+        await this.ensureReady();
         let sql = 'SELECT * FROM tracks WHERE 1=1';
         const params = [];
         if (filters.folderId) {
@@ -328,6 +337,7 @@ class DatabaseService {
     }
     // Folder methods
     async createFolder(folderData) {
+        await this.ensureReady();
         const now = new Date().toISOString();
         const folder = {
             id: this.generateId(),
@@ -362,6 +372,7 @@ class DatabaseService {
     }
     // Playlist methods
     async createPlaylist(playlistData) {
+        await this.ensureReady();
         const now = new Date().toISOString();
         const playlist = {
             id: this.generateId(),

@@ -91,8 +91,8 @@ export const MediaUpload = memo(function MediaUpload({
       xhr.addEventListener('load', () => {
         if (xhr.status === 200) {
           const response = JSON.parse(xhr.responseText)
-          
-          setUploadProgress(prev => 
+
+          setUploadProgress(prev =>
             prev.map((upload, index) => {
               const result = response.results[index]
               return {
@@ -103,14 +103,24 @@ export const MediaUpload = memo(function MediaUpload({
               }
             })
           )
-          
+
           onRefreshLibrary()
         } else {
-          setUploadProgress(prev => 
+          console.error('Upload failed with status:', xhr.status)
+          let errorMessage = 'Upload failed'
+          try {
+            const errorResponse = JSON.parse(xhr.responseText)
+            errorMessage = errorResponse.error || errorResponse.details || errorMessage
+            console.error('Server error:', errorResponse)
+          } catch (e) {
+            console.error('Could not parse error response:', xhr.responseText)
+          }
+
+          setUploadProgress(prev =>
             prev.map(upload => ({
               ...upload,
               status: 'error',
-              error: 'Upload failed'
+              error: errorMessage
             }))
           )
         }

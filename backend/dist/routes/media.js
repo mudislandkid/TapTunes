@@ -141,13 +141,22 @@ const upload = (0, multer_1.default)({
 // Upload multiple files
 router.post('/upload', upload.array('files', 10), async (req, res) => {
     try {
+        console.log('📤 [UPLOAD] Upload request received');
+        console.log('📋 [UPLOAD] Request body:', req.body);
+        console.log('📁 [UPLOAD] Files count:', req.files ? (Array.isArray(req.files) ? req.files.length : 'Not an array') : 'No files');
         if (!req.files || !Array.isArray(req.files)) {
+            console.error('❌ [UPLOAD] No files in request');
             return res.status(400).json({ error: 'No files uploaded' });
         }
         const folderId = req.body.folderId || null;
         const uploadResults = [];
+        console.log(`🎵 [UPLOAD] Processing ${req.files.length} files, folderId: ${folderId || 'root'}`);
         for (const file of req.files) {
             try {
+                console.log(`\n📝 [UPLOAD] Processing file: ${file.originalname}`);
+                console.log(`   Size: ${file.size} bytes`);
+                console.log(`   Path: ${file.path}`);
+                console.log(`   MIME: ${file.mimetype}`);
                 // Ensure music-metadata is loaded
                 await ensureMusicMetadata();
                 // Extract metadata from audio file
@@ -180,6 +189,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 const extractedDuration = Math.round(metadata.format.duration || 0);
                 console.log(`⏱️ [UPLOAD] Duration for ${file.originalname}: ${extractedDuration} seconds`);
                 // Create track record
+                console.log(`💾 [UPLOAD] Creating track record in database...`);
                 const track = await mediaService.createTrack({
                     title: metadata.common.title || path_1.default.basename(file.originalname, path_1.default.extname(file.originalname)),
                     artist: metadata.common.artist || 'Unknown Artist',
@@ -194,6 +204,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                     mimeType: file.mimetype,
                     folderId
                 });
+                console.log(`✅ [UPLOAD] Track created successfully: ${track.id}`);
                 uploadResults.push({
                     success: true,
                     track,
@@ -201,7 +212,12 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 });
             }
             catch (error) {
-                console.error('Error processing file:', file.originalname, error);
+                console.error(`❌ [UPLOAD] Error processing file ${file.originalname}:`, error);
+                console.error(`   Error details:`, {
+                    name: error instanceof Error ? error.name : 'Unknown',
+                    message: error instanceof Error ? error.message : String(error),
+                    stack: error instanceof Error ? error.stack : undefined
+                });
                 // Clean up file if processing failed
                 try {
                     await promises_1.default.unlink(file.path);
@@ -216,16 +232,24 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
                 });
             }
         }
+        const successCount = uploadResults.filter(r => r.success).length;
+        const errorCount = uploadResults.filter(r => !r.success).length;
+        console.log(`\n✅ [UPLOAD] Upload completed: ${successCount} succeeded, ${errorCount} failed`);
         res.json({
             message: 'Upload completed',
             results: uploadResults,
             totalFiles: req.files.length,
-            successCount: uploadResults.filter(r => r.success).length,
-            errorCount: uploadResults.filter(r => !r.success).length
+            successCount,
+            errorCount
         });
     }
     catch (error) {
-        console.error('Upload error:', error);
+        console.error('❌ [UPLOAD] Fatal upload error:', error);
+        console.error('   Error details:', {
+            name: error instanceof Error ? error.name : 'Unknown',
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined
+        });
         res.status(500).json({
             error: 'Upload failed',
             details: error instanceof Error ? error.message : 'Unknown error'
