@@ -191,174 +191,369 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
 });
 
 // Download audio from YouTube URL
+// Store for SSE clients
+const youtubeDownloadClients = new Map<string, any>();
+
+// SSE endpoint for YouTube download progress
+router.get('/download-youtube/progress/:downloadId', (req, res) => {
+  const { downloadId } = req.params;
+
+  // Set up SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  // Store client for this download
+  const clientData = {
+    res,
+    lastUpdate: Date.now()
+  };
+  youtubeDownloadClients.set(downloadId, clientData);
+
+  console.log(`📡 [YOUTUBE SSE] Client connected for download ${downloadId}`);
+
+  // Handle client disconnect
+  req.on('close', () => {
+    youtubeDownloadClients.delete(downloadId);
+    console.log(`📡 [YOUTUBE SSE] Client disconnected for download ${downloadId}`);
+  });
+});
+
+// Helper to send SSE update
+function sendProgress(downloadId: string, data: any) {
+  const client = youtubeDownloadClients.get(downloadId);
+  if (client) {
+    client.res.write(`data: ${JSON.stringify(data)}\n\n`);
+    client.lastUpdate = Date.now();
+  }
+}
+
 router.post('/download-youtube', async (req, res) => {
+  const downloadId = Date.now() + '-' + Math.round(Math.random() * 1E9);
+
   try {
     const { url, folderId } = req.body;
-    
+
     if (!url) {
       return res.status(400).json({ error: 'URL is required' });
     }
 
-    console.log(`🎬 [YOUTUBE] Starting download from: ${url}`);
+    console.log(`🎬 [YOUTUBE] Starting download ${downloadId} from: ${url}`);
 
-    // Create upload directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'uploads');
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    // Generate unique filename prefix
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const outputTemplate = path.join(uploadDir, `youtube-${uniqueSuffix}.%(ext)s`);
-
-    // Download audio and thumbnail using yt-dlp
-    const ytDlpArgs = [
-      '--extract-audio',
-      '--audio-format', 'mp3',
-      '--audio-quality', '0', // Best quality
-      '--write-thumbnail',
-      '--write-info-json',
-      '--no-playlist',
-      '--output', outputTemplate,
-      url
-    ];
-
-    console.log(`🔧 [YOUTUBE] Running yt-dlp with args:`, ytDlpArgs);
-
-    const { spawn } = require('child_process');
-    
-    const ytDlpProcess = spawn('yt-dlp', ytDlpArgs, {
-      stdio: 'pipe'
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    ytDlpProcess.stdout.on('data', (data: Buffer) => {
-      const output = data.toString();
-      stdout += output;
-      console.log('📹 [YOUTUBE stdout]:', output.trim());
-    });
-
-    ytDlpProcess.stderr.on('data', (data: Buffer) => {
-      const output = data.toString();
-      stderr += output;
-      console.log('📹 [YOUTUBE stderr]:', output.trim());
-    });
-
-    await new Promise((resolve, reject) => {
-      // Set a timeout for the download process
-      const timeout = setTimeout(() => {
-        ytDlpProcess.kill();
-        reject(new Error('Download timeout - process took too long'));
-      }, 120000); // 2 minutes timeout
-
-      ytDlpProcess.on('close', (code: number) => {
-        clearTimeout(timeout);
-        if (code === 0) {
-          resolve(code);
-        } else {
-          reject(new Error(`yt-dlp process exited with code ${code}. stderr: ${stderr}`));
-        }
-      });
-
-      ytDlpProcess.on('error', (error: Error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-    });
-    
-    if (stderr && !stderr.includes('WARNING')) {
-      console.error('yt-dlp stderr:', stderr);
-    }
-
-    console.log(`✅ [YOUTUBE] Download completed`);
-
-    // Find the downloaded files
-    const files = await fs.readdir(uploadDir);
-    const audioFile = files.find(f => f.startsWith(`youtube-${uniqueSuffix}`) && f.endsWith('.mp3'));
-    const thumbnailFile = files.find(f => f.startsWith(`youtube-${uniqueSuffix}`) && (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.webp')));
-    const infoFile = files.find(f => f.startsWith(`youtube-${uniqueSuffix}`) && f.endsWith('.info.json'));
-
-    if (!audioFile) {
-      console.error('❌ [YOUTUBE] Audio file not found after download');
-      return res.status(500).json({ error: 'Download failed - audio file not created' });
-    }
-
-    const audioFilePath = path.join(uploadDir, audioFile);
-    console.log(`📁 [YOUTUBE] Audio file: ${audioFilePath}`);
-
-    // Read video info if available
-    let videoInfo: any = {};
-    if (infoFile) {
-      try {
-        const infoContent = await fs.readFile(path.join(uploadDir, infoFile), 'utf-8');
-        videoInfo = JSON.parse(infoContent);
-        console.log(`📋 [YOUTUBE] Video info loaded: ${videoInfo.title || 'Unknown'}`);
-      } catch (error) {
-        console.warn('Failed to parse video info:', error);
-      }
-    }
-
-    // Extract audio metadata
-    let metadata: any = {};
-    try {
-      // Ensure music-metadata is loaded
-      await ensureMusicMetadata();
-      if (parseFile) {
-        metadata = await parseFile(audioFilePath);
-        console.log(`🎵 [YOUTUBE] Audio metadata extracted`);
-      } else {
-        console.warn('Music-metadata not available, using defaults');
-        metadata = { common: {}, format: { duration: 0 } };
-      }
-    } catch (error) {
-      console.warn('Failed to extract audio metadata:', error);
-      metadata = { common: {}, format: { duration: 0 } };
-    }
-
-    // Get file stats
-    const stats = await fs.stat(audioFilePath);
-
-    // Create track record with YouTube info
-    const track = await mediaService.createTrack({
-      title: videoInfo.title || metadata.common?.title || 'Downloaded Video',
-      artist: videoInfo.uploader || videoInfo.channel || metadata.common?.artist || 'YouTube',
-      album: videoInfo.playlist_title || metadata.common?.album || 'YouTube Downloads',
-      duration: Math.round(videoInfo.duration || metadata.format?.duration || 0),
-      genre: metadata.common?.genre?.join(', ') || 'Downloaded',
-      year: videoInfo.upload_date ? parseInt(videoInfo.upload_date.substring(0, 4)) : metadata.common?.year,
-      filePath: audioFilePath,
-      fileName: audioFile,
-      originalName: `${videoInfo.title || 'youtube-video'}.mp3`,
-      fileSize: stats.size,
-      mimeType: 'audio/mpeg',
-      folderId: folderId || null,
-      thumbnailPath: thumbnailFile ? path.join(uploadDir, thumbnailFile) : undefined,
-      sourceUrl: url
-    });
-
-    // Clean up info file
-    if (infoFile) {
-      try {
-        await fs.unlink(path.join(uploadDir, infoFile));
-      } catch (error) {
-        console.warn('Failed to clean up info file:', error);
-      }
-    }
-
-    console.log(`✅ [YOUTUBE] Track created successfully: ${track.title}`);
-
+    // Send initial response with download ID
     res.json({
       success: true,
-      track,
-      message: 'Video downloaded and added to library',
-      thumbnailAvailable: !!thumbnailFile
+      downloadId,
+      message: 'Download started'
     });
 
+    // Continue download in background
+    (async () => {
+      try {
+        sendProgress(downloadId, {
+          status: 'initializing',
+          message: 'Preparing download...',
+          progress: 0
+        });
+
+        // Create upload directory if it doesn't exist
+        const uploadDir = path.join(process.cwd(), 'uploads');
+        await fs.mkdir(uploadDir, { recursive: true });
+
+        // Generate unique filename prefix
+        const uniqueSuffix = downloadId.toString();
+        const outputTemplate = path.join(uploadDir, `youtube-${uniqueSuffix}.%(ext)s`);
+
+        // Download audio and thumbnail using yt-dlp
+        const ytDlpArgs = [
+          '--extract-audio',
+          '--audio-format', 'mp3',
+          '--audio-quality', '0', // Best quality
+          '--write-thumbnail',
+          '--write-info-json',
+          '--no-playlist',
+          '--newline', // Progress on new lines
+          '--output', outputTemplate,
+          url
+        ];
+
+        console.log(`🔧 [YOUTUBE] Running yt-dlp with args:`, ytDlpArgs);
+
+        sendProgress(downloadId, {
+          status: 'fetching',
+          message: 'Fetching video information...',
+          progress: 5
+        });
+
+        const { spawn } = require('child_process');
+
+        const ytDlpProcess = spawn('yt-dlp', ytDlpArgs, {
+          stdio: 'pipe'
+        });
+
+        let stdout = '';
+        let stderr = '';
+        let videoTitle = '';
+
+        ytDlpProcess.stdout.on('data', (data: Buffer) => {
+          const output = data.toString();
+          stdout += output;
+
+          // Parse progress from yt-dlp output
+          const lines = output.split('\n');
+          for (const line of lines) {
+            console.log('📹 [YOUTUBE]:', line.trim());
+
+            // Extract video title
+            if (line.includes('[youtube]') && line.includes(':')) {
+              const titleMatch = line.match(/\[youtube\]\s+[^:]+:\s+(.+)/);
+              if (titleMatch && !videoTitle) {
+                videoTitle = titleMatch[1].trim();
+                sendProgress(downloadId, {
+                  status: 'fetching',
+                  message: `Found: ${videoTitle}`,
+                  progress: 10,
+                  videoTitle
+                });
+              }
+            }
+
+            // Extract download progress
+            if (line.includes('[download]') && line.includes('%')) {
+              const progressMatch = line.match(/(\d+\.?\d*)%/);
+              if (progressMatch) {
+                const downloadProgress = parseFloat(progressMatch[1]);
+                sendProgress(downloadId, {
+                  status: 'downloading',
+                  message: `Downloading... ${downloadProgress.toFixed(1)}%`,
+                  progress: 10 + (downloadProgress * 0.6), // 10-70%
+                  videoTitle: videoTitle || 'Video'
+                });
+              }
+            }
+
+            // Post-processing started
+            if (line.includes('[ExtractAudio]')) {
+              sendProgress(downloadId, {
+                status: 'processing',
+                message: 'Converting to MP3...',
+                progress: 75,
+                videoTitle
+              });
+            }
+          }
+        });
+
+        ytDlpProcess.stderr.on('data', (data: Buffer) => {
+          const output = data.toString();
+          stderr += output;
+          console.log('📹 [YOUTUBE stderr]:', output.trim());
+        });
+
+        await new Promise((resolve, reject) => {
+          // Set a timeout for the download process
+          const timeout = setTimeout(() => {
+            ytDlpProcess.kill();
+            sendProgress(downloadId, {
+              status: 'error',
+              message: 'Download timeout - process took too long',
+              progress: 0,
+              error: 'Timeout after 2 minutes'
+            });
+            reject(new Error('Download timeout - process took too long'));
+          }, 120000); // 2 minutes timeout
+
+          ytDlpProcess.on('close', (code: number) => {
+            clearTimeout(timeout);
+            if (code === 0) {
+              sendProgress(downloadId, {
+                status: 'finalizing',
+                message: 'Processing metadata...',
+                progress: 80,
+                videoTitle
+              });
+              resolve(code);
+            } else {
+              const errorMsg = `Download failed (exit code ${code})`;
+              sendProgress(downloadId, {
+                status: 'error',
+                message: errorMsg,
+                progress: 0,
+                error: stderr || 'Unknown error'
+              });
+              reject(new Error(`${errorMsg}. stderr: ${stderr}`));
+            }
+          });
+
+          ytDlpProcess.on('error', (error: Error) => {
+            clearTimeout(timeout);
+            sendProgress(downloadId, {
+              status: 'error',
+              message: 'Failed to start download',
+              progress: 0,
+              error: error.message
+            });
+            reject(error);
+          });
+        });
+
+        if (stderr && !stderr.includes('WARNING')) {
+          console.error('yt-dlp stderr:', stderr);
+        }
+
+        console.log(`✅ [YOUTUBE] Download completed`);
+
+        sendProgress(downloadId, {
+          status: 'processing',
+          message: 'Extracting metadata...',
+          progress: 85,
+          videoTitle
+        });
+
+        // Find the downloaded files
+        const files = await fs.readdir(uploadDir);
+        const audioFile = files.find(f => f.startsWith(`youtube-${uniqueSuffix}`) && f.endsWith('.mp3'));
+        const thumbnailFile = files.find(f => f.startsWith(`youtube-${uniqueSuffix}`) && (f.endsWith('.jpg') || f.endsWith('.png') || f.endsWith('.webp')));
+        const infoFile = files.find(f => f.startsWith(`youtube-${uniqueSuffix}`) && f.endsWith('.info.json'));
+
+        if (!audioFile) {
+          console.error('❌ [YOUTUBE] Audio file not found after download');
+          sendProgress(downloadId, {
+            status: 'error',
+            message: 'Audio file not created',
+            progress: 0,
+            error: 'Download completed but audio file was not found'
+          });
+          throw new Error('Download failed - audio file not created');
+        }
+
+        const audioFilePath = path.join(uploadDir, audioFile);
+        console.log(`📁 [YOUTUBE] Audio file: ${audioFilePath}`);
+
+        // Read video info if available
+        let videoInfo: any = {};
+        if (infoFile) {
+          try {
+            const infoContent = await fs.readFile(path.join(uploadDir, infoFile), 'utf-8');
+            videoInfo = JSON.parse(infoContent);
+            videoTitle = videoInfo.title || videoTitle;
+            console.log(`📋 [YOUTUBE] Video info loaded: ${videoTitle || 'Unknown'}`);
+          } catch (error) {
+            console.warn('Failed to parse video info:', error);
+          }
+        }
+
+        sendProgress(downloadId, {
+          status: 'processing',
+          message: 'Reading audio metadata...',
+          progress: 90,
+          videoTitle
+        });
+
+        // Extract audio metadata
+        let metadata: any = {};
+        try {
+          // Ensure music-metadata is loaded
+          await ensureMusicMetadata();
+          if (parseFile) {
+            metadata = await parseFile(audioFilePath);
+            console.log(`🎵 [YOUTUBE] Audio metadata extracted`);
+          } else {
+            console.warn('Music-metadata not available, using defaults');
+            metadata = { common: {}, format: { duration: 0 } };
+          }
+        } catch (error) {
+          console.warn('Failed to extract audio metadata:', error);
+          metadata = { common: {}, format: { duration: 0 } };
+        }
+
+        sendProgress(downloadId, {
+          status: 'saving',
+          message: 'Adding to library...',
+          progress: 95,
+          videoTitle
+        });
+
+        // Get file stats
+        const stats = await fs.stat(audioFilePath);
+
+        // Create track record with YouTube info
+        const track = await mediaService.createTrack({
+          title: videoInfo.title || metadata.common?.title || 'Downloaded Video',
+          artist: videoInfo.uploader || videoInfo.channel || metadata.common?.artist || 'YouTube',
+          album: videoInfo.playlist_title || metadata.common?.album || 'YouTube Downloads',
+          duration: Math.round(videoInfo.duration || metadata.format?.duration || 0),
+          genre: metadata.common?.genre?.join(', ') || 'Downloaded',
+          year: videoInfo.upload_date ? parseInt(videoInfo.upload_date.substring(0, 4)) : metadata.common?.year,
+          filePath: audioFilePath,
+          fileName: audioFile,
+          originalName: `${videoInfo.title || 'youtube-video'}.mp3`,
+          fileSize: stats.size,
+          mimeType: 'audio/mpeg',
+          folderId: folderId || null,
+          thumbnailPath: thumbnailFile ? path.join(uploadDir, thumbnailFile) : undefined,
+          sourceUrl: url
+        });
+
+        // Clean up info file
+        if (infoFile) {
+          try {
+            await fs.unlink(path.join(uploadDir, infoFile));
+          } catch (error) {
+            console.warn('Failed to clean up info file:', error);
+          }
+        }
+
+        console.log(`✅ [YOUTUBE] Track created successfully: ${track.title}`);
+
+        sendProgress(downloadId, {
+          status: 'complete',
+          message: 'Download complete!',
+          progress: 100,
+          videoTitle,
+          track: {
+            id: track.id,
+            title: track.title,
+            artist: track.artist,
+            duration: track.duration
+          }
+        });
+
+        // Close SSE connection after a short delay
+        setTimeout(() => {
+          const client = youtubeDownloadClients.get(downloadId);
+          if (client) {
+            client.res.end();
+            youtubeDownloadClients.delete(downloadId);
+          }
+        }, 2000);
+
+      } catch (error) {
+        console.error('❌ [YOUTUBE] Download failed:', error);
+        sendProgress(downloadId, {
+          status: 'error',
+          message: 'Download failed',
+          progress: 0,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+
+        // Close SSE connection after a short delay
+        setTimeout(() => {
+          const client = youtubeDownloadClients.get(downloadId);
+          if (client) {
+            client.res.end();
+            youtubeDownloadClients.delete(downloadId);
+          }
+        }, 2000);
+      }
+    })();
+
   } catch (error) {
-    console.error('❌ [YOUTUBE] Download failed:', error);
-    res.status(500).json({ 
-      error: 'YouTube download failed', 
-      details: error instanceof Error ? error.message : 'Unknown error' 
+    console.error('❌ [YOUTUBE] Initial request failed:', error);
+    res.status(500).json({
+      error: 'YouTube download failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 });
