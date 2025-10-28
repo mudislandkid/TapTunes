@@ -267,40 +267,54 @@ class MetadataService {
             return null;
         }
     }
-    async makeRequest(url) {
+    async makeRequest(url, retries = 3) {
         const headers = {
             'User-Agent': this.userAgent,
             'Accept': 'application/json'
         };
         // Add delay to respect rate limits (MusicBrainz allows 1 request per second)
         await this.delay(1000);
-        try {
-            const response = await axios_1.default.get(url, {
-                headers,
-                timeout: 10000, // 10 second timeout
-                validateStatus: (status) => status < 500 // Don't throw on 4xx errors
-            });
-            // Return a Response-like object for compatibility
-            return {
-                ok: response.status >= 200 && response.status < 300,
-                status: response.status,
-                statusText: response.statusText,
-                json: async () => response.data
-            };
-        }
-        catch (error) {
-            if (error.response) {
-                // Server responded with error status
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            try {
+                const https = require('https');
+                const response = await axios_1.default.get(url, {
+                    headers,
+                    timeout: 15000, // 15 second timeout
+                    validateStatus: (status) => status < 500, // Don't throw on 4xx errors
+                    httpsAgent: new https.Agent({
+                        keepAlive: false, // Disable keep-alive to avoid ECONNRESET
+                        rejectUnauthorized: true
+                    })
+                });
+                // Return a Response-like object for compatibility
                 return {
-                    ok: false,
-                    status: error.response.status,
-                    statusText: error.response.statusText,
-                    json: async () => error.response.data
+                    ok: response.status >= 200 && response.status < 300,
+                    status: response.status,
+                    statusText: response.statusText,
+                    json: async () => response.data
                 };
             }
-            // Network error or timeout
-            throw error;
+            catch (error) {
+                if (error.response) {
+                    // Server responded with error status - don't retry
+                    return {
+                        ok: false,
+                        status: error.response.status,
+                        statusText: error.response.statusText,
+                        json: async () => error.response.data
+                    };
+                }
+                // Network error - retry if we have attempts left
+                if (attempt < retries && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT')) {
+                    console.log(`⚠️ [METADATA] Request failed (attempt ${attempt}/${retries}), retrying...`);
+                    await this.delay(2000 * attempt); // Exponential backoff
+                    continue;
+                }
+                // Out of retries or non-retryable error
+                throw error;
+            }
         }
+        throw new Error('Max retries exceeded');
     }
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
