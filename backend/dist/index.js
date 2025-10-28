@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const path_1 = __importDefault(require("path"));
 const audio_1 = __importDefault(require("./routes/audio"));
 const rfid_1 = __importDefault(require("./routes/rfid"));
 const media_1 = __importDefault(require("./routes/media"));
@@ -17,6 +18,8 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 app.use((0, cors_1.default)());
 app.use(express_1.default.json({ limit: '500mb' }));
 app.use(express_1.default.urlencoded({ limit: '500mb', extended: true }));
+// Serve uploaded files (album art, audio files)
+app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

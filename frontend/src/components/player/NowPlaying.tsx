@@ -54,26 +54,34 @@ export const NowPlaying = memo(function NowPlaying({
           <div className="flex flex-col items-center space-y-4 md:space-y-6">
             {/* Album Art */}
             <div className="relative">
-              <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 bg-gradient-to-br from-slate-800/40 to-slate-700/40 rounded-3xl flex items-center justify-center border border-slate-600/30">
+              <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 bg-gradient-to-br from-slate-800/40 to-slate-700/40 rounded-3xl flex items-center justify-center border border-slate-600/30 overflow-hidden">
                 {playbackState.currentTrack ? (
-                  <div className="text-center">
-                    <Music className="w-16 h-16 text-slate-200 mx-auto mb-4" />
-                    <div className="space-y-2">
-                      <h2 className="text-xl font-semibold text-slate-100">
-                        {playbackState.currentTrack.title}
-                      </h2>
-                      {playbackState.currentTrack.artist && (
-                        <p className="text-slate-200">
-                          {playbackState.currentTrack.artist}
-                        </p>
-                      )}
-                      {playbackState.currentTrack.album && (
-                        <p className="text-sm text-slate-300">
-                          {playbackState.currentTrack.album}
-                        </p>
-                      )}
+                  playbackState.currentTrack.coverArt ? (
+                    <img
+                      src={playbackState.currentTrack.coverArt}
+                      alt={`${playbackState.currentTrack.album} cover`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-center p-4">
+                      <Music className="w-16 h-16 text-slate-200 mx-auto mb-4" />
+                      <div className="space-y-2">
+                        <h2 className="text-xl font-semibold text-slate-100">
+                          {playbackState.currentTrack.title}
+                        </h2>
+                        {playbackState.currentTrack.artist && (
+                          <p className="text-slate-200">
+                            {playbackState.currentTrack.artist}
+                          </p>
+                        )}
+                        {playbackState.currentTrack.album && (
+                          <p className="text-sm text-slate-300">
+                            {playbackState.currentTrack.album}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )
                 ) : (
                   <div className="text-center">
                     <Music className="w-16 h-16 text-slate-400 mx-auto mb-4" />

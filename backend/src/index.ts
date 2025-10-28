@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import audioRoutes from './routes/audio';
 import rfidRoutes from './routes/rfid';
 import mediaRoutes from './routes/media';
@@ -15,6 +16,9 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 app.use(cors());
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
+
+// Serve uploaded files (album art, audio files)
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

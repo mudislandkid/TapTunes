@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MediaService = void 0;
 const promises_1 = __importDefault(require("fs/promises"));
+const path_1 = __importDefault(require("path"));
 const databaseService_1 = require("./databaseService");
 class MediaService {
     constructor() {
@@ -19,6 +20,20 @@ class MediaService {
     }
     // Convert database track to frontend track format
     convertDbTrack(dbTrack) {
+        // Convert absolute thumbnail path to URL path for frontend
+        let coverArt = undefined;
+        if (dbTrack.thumbnail_path) {
+            const uploadsDir = path_1.default.join(process.cwd(), 'uploads');
+            if (dbTrack.thumbnail_path.startsWith(uploadsDir)) {
+                // Extract filename from absolute path
+                const filename = path_1.default.basename(dbTrack.thumbnail_path);
+                coverArt = `/uploads/${filename}`;
+            }
+            else if (dbTrack.thumbnail_path.startsWith('/uploads/')) {
+                // Already a URL path
+                coverArt = dbTrack.thumbnail_path;
+            }
+        }
         return {
             id: dbTrack.id,
             title: dbTrack.title,
@@ -34,6 +49,7 @@ class MediaService {
             mimeType: dbTrack.mime_type,
             folderId: dbTrack.folder_id,
             isLiked: dbTrack.is_liked,
+            coverArt: coverArt,
             thumbnailPath: dbTrack.thumbnail_path,
             sourceUrl: dbTrack.source_url,
             createdAt: dbTrack.created_at,

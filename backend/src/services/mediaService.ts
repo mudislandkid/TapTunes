@@ -17,6 +17,7 @@ export interface Track {
   mimeType: string;
   folderId?: string;
   isLiked?: boolean;
+  coverArt?: string; // URL path for frontend
   thumbnailPath?: string;
   sourceUrl?: string;
   createdAt: string;
@@ -102,6 +103,20 @@ export class MediaService {
 
   // Convert database track to frontend track format
   private convertDbTrack(dbTrack: DatabaseTrack): Track {
+    // Convert absolute thumbnail path to URL path for frontend
+    let coverArt: string | undefined = undefined;
+    if (dbTrack.thumbnail_path) {
+      const uploadsDir = path.join(process.cwd(), 'uploads');
+      if (dbTrack.thumbnail_path.startsWith(uploadsDir)) {
+        // Extract filename from absolute path
+        const filename = path.basename(dbTrack.thumbnail_path);
+        coverArt = `/uploads/${filename}`;
+      } else if (dbTrack.thumbnail_path.startsWith('/uploads/')) {
+        // Already a URL path
+        coverArt = dbTrack.thumbnail_path;
+      }
+    }
+
     return {
       id: dbTrack.id,
       title: dbTrack.title,
@@ -117,6 +132,7 @@ export class MediaService {
       mimeType: dbTrack.mime_type,
       folderId: dbTrack.folder_id,
       isLiked: dbTrack.is_liked,
+      coverArt: coverArt,
       thumbnailPath: dbTrack.thumbnail_path,
       sourceUrl: dbTrack.source_url,
       createdAt: dbTrack.created_at,

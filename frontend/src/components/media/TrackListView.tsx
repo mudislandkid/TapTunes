@@ -58,11 +58,19 @@ export const TrackListView = memo(function TrackListView({
             <GlassCard className="p-4 hover:bg-slate-800/60 transition-all group cursor-pointer">
               <div className="flex items-center space-x-4">
                 <motion.div
-                  className="w-12 h-12 bg-gradient-to-br from-slate-700 to-slate-600 rounded-lg flex items-center justify-center"
+                  className="w-12 h-12 bg-gradient-to-br from-slate-700 to-slate-600 rounded-lg flex items-center justify-center overflow-hidden"
                   whileHover={{ scale: 1.1 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <Music className="w-5 h-5 text-slate-300" />
+                  {track.coverArt ? (
+                    <img
+                      src={track.coverArt}
+                      alt={`${track.album} cover`}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Music className="w-5 h-5 text-slate-300" />
+                  )}
                 </motion.div>
 
                 <div className="flex-1 min-w-0">

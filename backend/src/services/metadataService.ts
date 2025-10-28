@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
 import { exec } from 'child_process';
+import axios from 'axios';
 
 const execAsync = promisify(exec);
 
@@ -40,11 +41,11 @@ export class MetadataService {
   async lookupTrackMetadata(artist: string, title: string, album?: string): Promise<MetadataLookupResult[]> {
     try {
       console.log(`🔍 [METADATA] Looking up: "${title}" by "${artist}"`);
-      
+
       // Build search query - if artist is unknown/empty, search by title only
       let query: string;
       const isUnknownArtist = !artist || artist.toLowerCase() === 'unknown artist' || artist.trim() === '';
-      
+
       if (isUnknownArtist) {
         console.log(`🔍 [METADATA] Artist unknown, searching by title only: "${title}"`);
         query = `recording:"${title}"`;
@@ -59,10 +60,19 @@ export class MetadataService {
       }
 
       const searchUrl = `${this.musicBrainzBaseUrl}/recording?query=${encodeURIComponent(query)}&fmt=json&limit=10`;
-      
-      const response = await this.makeRequest(searchUrl);
-      const data = await response.json();
-      
+
+      let response = await this.makeRequest(searchUrl);
+      let data = await response.json();
+
+      // If no results and we searched with artist, try title-only as fallback
+      if ((!data.recordings || data.recordings.length === 0) && !isUnknownArtist) {
+        console.log(`⚠️ [METADATA] No results with artist+title, trying title only...`);
+        const fallbackQuery = `recording:"${title}"`;
+        const fallbackUrl = `${this.musicBrainzBaseUrl}/recording?query=${encodeURIComponent(fallbackQuery)}&fmt=json&limit=10`;
+        response = await this.makeRequest(fallbackUrl);
+        data = await response.json();
+      }
+
       if (!data.recordings || data.recordings.length === 0) {
         console.log(`❌ [METADATA] No results found for "${title}" by "${artist}"`);
         return [];
@@ -155,16 +165,24 @@ export class MetadataService {
   async downloadAlbumArt(artUrl: string, trackId: string): Promise<string | null> {
     try {
       console.log(`⬇️ [METADATA] Downloading album art: ${artUrl}`);
-      
-      const response = await this.makeRequest(artUrl);
-      if (!response.ok) {
+
+      // Download image directly with axios (not through makeRequest)
+      const response = await axios.get(artUrl, {
+        responseType: 'arraybuffer',
+        timeout: 15000,
+        headers: {
+          'User-Agent': this.userAgent
+        }
+      });
+
+      if (response.status !== 200) {
         throw new Error(`Failed to download image: ${response.status}`);
       }
 
       // Get file extension from content type or URL
-      const contentType = response.headers.get('content-type') || '';
+      const contentType = response.headers['content-type'] || '';
       let extension = '.jpg';
-      
+
       if (contentType.includes('png')) extension = '.png';
       else if (contentType.includes('webp')) extension = '.webp';
       else if (artUrl.includes('.png')) extension = '.png';
@@ -178,8 +196,8 @@ export class MetadataService {
       const filename = `album-art-${trackId}${extension}`;
       const localPath = path.join(uploadsDir, filename);
 
-      const buffer = await response.arrayBuffer();
-      await fs.writeFile(localPath, Buffer.from(buffer));
+      // Axios with responseType: 'arraybuffer' returns data as Buffer
+      await fs.writeFile(localPath, Buffer.from(response.data));
 
       console.log(`✅ [METADATA] Album art saved: ${localPath}`);
       return localPath;
@@ -325,7 +343,7 @@ export class MetadataService {
     }
   }
 
-  private async makeRequest(url: string): Promise<Response> {
+  private async makeRequest(url: string, retries = 3): Promise<any> {
     const headers = {
       'User-Agent': this.userAgent,
       'Accept': 'application/json'
@@ -334,13 +352,50 @@ export class MetadataService {
     // Add delay to respect rate limits (MusicBrainz allows 1 request per second)
     await this.delay(1000);
 
-    const response = await fetch(url, { headers });
-    
-    if (!response.ok && response.status !== 404) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const https = require('https');
+        const response = await axios.get(url, {
+          headers,
+          timeout: 15000, // 15 second timeout
+          validateStatus: (status) => status < 500, // Don't throw on 4xx errors
+          httpsAgent: new https.Agent({
+            keepAlive: false, // Disable keep-alive to avoid ECONNRESET
+            rejectUnauthorized: true
+          })
+        });
+
+        // Return a Response-like object for compatibility
+        return {
+          ok: response.status >= 200 && response.status < 300,
+          status: response.status,
+          statusText: response.statusText,
+          json: async () => response.data
+        };
+      } catch (error: any) {
+        if (error.response) {
+          // Server responded with error status - don't retry
+          return {
+            ok: false,
+            status: error.response.status,
+            statusText: error.response.statusText,
+            json: async () => error.response.data
+          };
+        }
+
+        // Network error - retry if we have attempts left
+        if (attempt < retries && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT')) {
+          console.log(`⚠️ [METADATA] Request failed (attempt ${attempt}/${retries}), retrying...`);
+          await this.delay(2000 * attempt); // Exponential backoff
+          continue;
+        }
+
+        // Out of retries or non-retryable error
+        throw error;
+      }
     }
 
-    return response;
+    throw new Error('Max retries exceeded');
   }
 
   private delay(ms: number): Promise<void> {
