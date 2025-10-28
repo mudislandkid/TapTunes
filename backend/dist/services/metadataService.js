@@ -42,8 +42,16 @@ class MetadataService {
                 }
             }
             const searchUrl = `${this.musicBrainzBaseUrl}/recording?query=${encodeURIComponent(query)}&fmt=json&limit=10`;
-            const response = await this.makeRequest(searchUrl);
-            const data = await response.json();
+            let response = await this.makeRequest(searchUrl);
+            let data = await response.json();
+            // If no results and we searched with artist, try title-only as fallback
+            if ((!data.recordings || data.recordings.length === 0) && !isUnknownArtist) {
+                console.log(`⚠️ [METADATA] No results with artist+title, trying title only...`);
+                const fallbackQuery = `recording:"${title}"`;
+                const fallbackUrl = `${this.musicBrainzBaseUrl}/recording?query=${encodeURIComponent(fallbackQuery)}&fmt=json&limit=10`;
+                response = await this.makeRequest(fallbackUrl);
+                data = await response.json();
+            }
             if (!data.recordings || data.recordings.length === 0) {
                 console.log(`❌ [METADATA] No results found for "${title}" by "${artist}"`);
                 return [];
