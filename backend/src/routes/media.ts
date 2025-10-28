@@ -106,13 +106,19 @@ const upload = multer({
 });
 
 // Upload multiple files
-router.post('/upload', upload.array('files', 10), async (req, res) => {
+router.post('/upload', upload.fields([
+  { name: 'files', maxCount: 10 }
+]), async (req, res) => {
   try {
     console.log('📤 [UPLOAD] Upload request received');
     console.log('📋 [UPLOAD] Request body:', req.body);
-    console.log('📁 [UPLOAD] Files count:', req.files ? (Array.isArray(req.files) ? req.files.length : 'Not an array') : 'No files');
 
-    if (!req.files || !Array.isArray(req.files)) {
+    // With upload.fields(), files are in req.files as an object
+    const files = req.files && 'files' in req.files ? req.files['files'] : null;
+
+    console.log('📁 [UPLOAD] Files count:', files ? files.length : 'No files');
+
+    if (!files || !Array.isArray(files)) {
       console.error('❌ [UPLOAD] No files in request');
       return res.status(400).json({ error: 'No files uploaded' });
     }
@@ -158,9 +164,9 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     const uploadResults = [];
     const uploadedTrackIds: string[] = [];
 
-    console.log(`🎵 [UPLOAD] Processing ${req.files.length} files, folderId: ${folderId || 'root'}`);
+    console.log(`🎵 [UPLOAD] Processing ${files.length} files, folderId: ${folderId || 'root'}`);
 
-    for (const file of req.files) {
+    for (const file of files) {
       try {
         console.log(`\n📝 [UPLOAD] Processing file: ${file.originalname}`);
         console.log(`   Size: ${file.size} bytes`);
@@ -271,7 +277,7 @@ router.post('/upload', upload.array('files', 10), async (req, res) => {
     res.json({
       message: 'Upload completed',
       results: uploadResults,
-      totalFiles: req.files.length,
+      totalFiles: files.length,
       successCount,
       errorCount,
       folderId,
