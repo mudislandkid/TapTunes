@@ -301,23 +301,10 @@ router.post('/download-youtube', async (req, res) => {
                     '--write-info-json',
                     '--no-playlist',
                     '--newline', // Progress on new lines
-                    // User-agent to avoid bot detection
-                    '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    // Additional headers to appear more like a real browser
-                    '--add-header', 'Accept:text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    '--add-header', 'Accept-Language:en-us,en;q=0.5',
-                    '--add-header', 'Sec-Fetch-Mode:navigate',
                     // Retry and timeout settings
                     '--retries', '5',
                     '--fragment-retries', '5',
                     '--skip-unavailable-fragments',
-                    // Workaround for YouTube SABR streaming and signature issues
-                    // Use android client (most reliable) and ios as backup
-                    '--extractor-args', 'youtube:player_client=android,ios,web',
-                    '--extractor-args', 'youtube:player_skip=webpage',
-                    // Bypass age gate and other restrictions
-                    '--extractor-args', 'youtube:skip=hls,dash',
-                    '--no-check-certificate',
                     // Force IPv4 (some networks have IPv6 issues)
                     '-4',
                     '--output', outputTemplate,
