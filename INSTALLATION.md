@@ -389,9 +389,59 @@ sudo apt-get remove nodejs python3-spidev
 sudo pip3 uninstall RPi.GPIO spidev mfrc522 requests
 ```
 
+## Nginx Configuration (Optional)
+
+TapTunes includes an nginx configuration for production deployments. The installer will automatically detect nginx and offer to configure it.
+
+### Manual Nginx Setup
+
+If you want to set up nginx manually:
+
+1. **Install nginx** (if not already installed):
+   ```bash
+   sudo apt-get install nginx
+   ```
+
+2. **Deploy the configuration**:
+   ```bash
+   sudo cp ~/TapTunes/scripts/taptunes-nginx.conf /etc/nginx/sites-available/taptunes
+   sudo ln -s /etc/nginx/sites-available/taptunes /etc/nginx/sites-enabled/taptunes
+   ```
+
+3. **Deploy frontend** (if using nginx):
+   ```bash
+   sudo mkdir -p /var/www/taptunes
+   sudo cp -r ~/TapTunes/frontend/dist/* /var/www/taptunes/
+   ```
+
+4. **Test and reload nginx**:
+   ```bash
+   sudo nginx -t
+   sudo systemctl reload nginx
+   ```
+
+### Troubleshooting Nginx 502 Errors
+
+If you get 502 Bad Gateway errors:
+
+1. Check backend is running:
+   ```bash
+   sudo systemctl status taptunes
+   curl http://127.0.0.1:3001/audio/current
+   ```
+
+2. Check nginx error logs:
+   ```bash
+   sudo tail -f /var/log/nginx/error.log
+   ```
+
+3. If you see IPv6 connection errors (`[::1]:3001`), ensure your nginx config uses `127.0.0.1:3001` (not `localhost:3001`)
+
 ## Accessing TapTunes
 
-After installation, access the web interface at:
+### Direct Access (Development)
+
+Access the backend API directly at:
 
 ```
 http://your-pi-ip:3001
@@ -400,6 +450,14 @@ http://your-pi-ip:3001
 Or on the Pi itself:
 ```
 http://localhost:3001
+```
+
+### Via Nginx (Production)
+
+If you've configured nginx:
+
+```
+http://your-pi-ip
 ```
 
 ## Support

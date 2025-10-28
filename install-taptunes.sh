@@ -371,6 +371,72 @@ echo "  ✓ Music directory: $MUSIC_DIR"
 echo ""
 
 # ============================================
+# Step 9: Nginx Configuration (Optional)
+# ============================================
+echo "=========================================="
+echo "🌐 Step 9: Nginx Configuration"
+echo "=========================================="
+echo ""
+
+if command -v nginx &> /dev/null; then
+    echo "Nginx detected on system"
+    echo ""
+
+    if [ -f "$SCRIPT_DIR/scripts/taptunes-nginx.conf" ]; then
+        read -p "Would you like to install/update the nginx configuration? (y/n) " -n 1 -r
+        echo ""
+
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            echo "Installing nginx configuration..."
+
+            # Backup existing config if it exists
+            if [ -f "/etc/nginx/sites-available/taptunes" ]; then
+                cp /etc/nginx/sites-available/taptunes /etc/nginx/sites-available/taptunes.backup.$(date +%Y%m%d_%H%M%S)
+                echo "  ✓ Backed up existing config"
+            fi
+
+            # Copy new config
+            cp "$SCRIPT_DIR/scripts/taptunes-nginx.conf" /etc/nginx/sites-available/taptunes
+            echo "  ✓ Copied nginx config to /etc/nginx/sites-available/taptunes"
+
+            # Enable site if not already enabled
+            if [ ! -f "/etc/nginx/sites-enabled/taptunes" ]; then
+                ln -s /etc/nginx/sites-available/taptunes /etc/nginx/sites-enabled/taptunes
+                echo "  ✓ Enabled site"
+            fi
+
+            # Test nginx config
+            if nginx -t 2>/dev/null; then
+                echo "  ✓ Nginx configuration is valid"
+
+                # Ask to reload nginx
+                read -p "Reload nginx to apply changes? (y/n) " -n 1 -r
+                echo ""
+                if [[ $REPLY =~ ^[Yy]$ ]]; then
+                    systemctl reload nginx
+                    echo "  ✓ Nginx reloaded"
+                fi
+            else
+                echo -e "${RED}  ✗ Nginx configuration test failed${NC}"
+                echo "  Please check the configuration manually with: sudo nginx -t"
+            fi
+
+            echo ""
+            echo -e "${GREEN}✅ Nginx configuration updated${NC}"
+        else
+            echo "  Skipping nginx configuration"
+        fi
+    else
+        echo -e "${YELLOW}⚠️  Nginx config file not found at $SCRIPT_DIR/scripts/taptunes-nginx.conf${NC}"
+    fi
+else
+    echo "Nginx not detected - skipping nginx configuration"
+    echo "If you need nginx, install it with: sudo apt-get install nginx"
+fi
+
+echo ""
+
+# ============================================
 # Installation Complete
 # ============================================
 echo ""
