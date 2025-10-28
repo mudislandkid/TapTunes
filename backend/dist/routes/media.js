@@ -44,33 +44,22 @@ const child_process_1 = require("child_process");
 const util_1 = require("util");
 const mediaService_1 = require("../services/mediaService");
 const metadataService_1 = require("../services/metadataService");
-// Import music-metadata using require for better Node.js compatibility
+// Music-metadata loader with ESM support
 let parseFile;
 async function ensureMusicMetadata() {
     if (!parseFile) {
         try {
-            // Try CommonJS require first (more reliable in Node.js)
-            const mm = require('music-metadata');
+            // music-metadata v11+ is ESM-only, use dynamic import
+            const mm = await Promise.resolve().then(() => __importStar(require('music-metadata')));
             parseFile = mm.parseFile;
-            console.log('✅ [METADATA] music-metadata loaded via require');
+            console.log('✅ [METADATA] music-metadata loaded successfully');
         }
-        catch (requireError) {
-            console.warn('⚠️ [METADATA] require failed, trying import...', requireError.message);
-            try {
-                // Fallback to dynamic import
-                const mm = await Promise.resolve().then(() => __importStar(require('music-metadata')));
-                parseFile = mm.parseFile || mm.default?.parseFile;
-                console.log('✅ [METADATA] music-metadata loaded via import');
-            }
-            catch (importError) {
-                console.error('❌ [METADATA] Both require and import failed:', {
-                    requireError: requireError.message,
-                    importError: importError.message
-                });
-                parseFile = null;
-            }
+        catch (error) {
+            console.error('❌ [METADATA] Failed to load music-metadata:', error.message);
+            parseFile = null;
         }
     }
+    return parseFile;
 }
 const router = express_1.default.Router();
 const mediaService = new mediaService_1.MediaService();
@@ -198,30 +187,24 @@ router.post('/upload', upload.fields([
                 console.log(`   Size: ${file.size} bytes`);
                 console.log(`   Path: ${file.path}`);
                 console.log(`   MIME: ${file.mimetype}`);
-                // Ensure music-metadata is loaded
-                await ensureMusicMetadata();
                 // Extract metadata from audio file
                 let metadata;
-                if (parseFile) {
-                    try {
-                        metadata = await parseFile(file.path);
+                try {
+                    const parser = await ensureMusicMetadata();
+                    if (parser) {
+                        metadata = await parser(file.path);
                         console.log(`🎵 [UPLOAD] Extracted metadata for ${file.originalname}:`, {
                             title: metadata.common.title,
                             artist: metadata.common.artist,
                             duration: metadata.format.duration
                         });
                     }
-                    catch (metadataError) {
-                        console.error(`❌ [UPLOAD] Failed to extract metadata from ${file.originalname}:`, metadataError);
-                        metadata = {
-                            common: {},
-                            format: { duration: 0 }
-                        };
+                    else {
+                        throw new Error('Parser not available');
                     }
                 }
-                else {
-                    console.log(`⚠️ [UPLOAD] music-metadata not available, using fallback`);
-                    // Fallback metadata when music-metadata fails
+                catch (metadataError) {
+                    console.error(`❌ [UPLOAD] Failed to extract metadata from ${file.originalname}:`, metadataError);
                     metadata = {
                         common: {},
                         format: { duration: 0 }
@@ -589,19 +572,18 @@ router.post('/download-youtube', async (req, res) => {
                 // Extract audio metadata
                 let metadata = {};
                 try {
-                    // Ensure music-metadata is loaded
-                    await ensureMusicMetadata();
-                    if (parseFile) {
-                        metadata = await parseFile(audioFilePath);
+                    const parser = await ensureMusicMetadata();
+                    if (parser) {
+                        metadata = await parser(audioFilePath);
                         console.log(`🎵 [YOUTUBE] Audio metadata extracted`);
                     }
                     else {
-                        console.warn('Music-metadata not available, using defaults');
+                        console.warn('⚠️ [YOUTUBE] Music-metadata not available, using defaults');
                         metadata = { common: {}, format: { duration: 0 } };
                     }
                 }
                 catch (error) {
-                    console.warn('Failed to extract audio metadata:', error);
+                    console.warn('❌ [YOUTUBE] Failed to extract audio metadata:', error);
                     metadata = { common: {}, format: { duration: 0 } };
                 }
                 sendProgress(downloadId, {
