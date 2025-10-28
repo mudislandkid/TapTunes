@@ -8,6 +8,7 @@ const promises_1 = __importDefault(require("fs/promises"));
 const path_1 = __importDefault(require("path"));
 const util_1 = require("util");
 const child_process_1 = require("child_process");
+const axios_1 = __importDefault(require("axios"));
 const execAsync = (0, util_1.promisify)(child_process_1.exec);
 class MetadataService {
     constructor() {
@@ -273,11 +274,33 @@ class MetadataService {
         };
         // Add delay to respect rate limits (MusicBrainz allows 1 request per second)
         await this.delay(1000);
-        const response = await fetch(url, { headers });
-        if (!response.ok && response.status !== 404) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        try {
+            const response = await axios_1.default.get(url, {
+                headers,
+                timeout: 10000, // 10 second timeout
+                validateStatus: (status) => status < 500 // Don't throw on 4xx errors
+            });
+            // Return a Response-like object for compatibility
+            return {
+                ok: response.status >= 200 && response.status < 300,
+                status: response.status,
+                statusText: response.statusText,
+                json: async () => response.data
+            };
         }
-        return response;
+        catch (error) {
+            if (error.response) {
+                // Server responded with error status
+                return {
+                    ok: false,
+                    status: error.response.status,
+                    statusText: error.response.statusText,
+                    json: async () => error.response.data
+                };
+            }
+            // Network error or timeout
+            throw error;
+        }
     }
     delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
