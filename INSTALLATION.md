@@ -460,6 +460,51 @@ If you've configured nginx:
 http://your-pi-ip
 ```
 
+## Troubleshooting YouTube Downloads
+
+If YouTube downloads are failing with errors like "Precondition check failed" or "HTTP Error 403", this usually means yt-dlp needs to be updated. YouTube frequently changes their API to block scrapers.
+
+### Update yt-dlp
+
+Run the update script:
+
+```bash
+cd ~/TapTunes
+sudo ./scripts/update-ytdlp.sh
+```
+
+Or manually:
+
+```bash
+# Update yt-dlp
+sudo pip3 install --upgrade yt-dlp
+
+# Or use yt-dlp's self-update
+sudo yt-dlp -U
+
+# Restart TapTunes service
+sudo systemctl restart taptunes
+```
+
+### Check yt-dlp Version
+
+```bash
+yt-dlp --version
+```
+
+If downloads still fail after updating:
+1. Try the video URL directly: `yt-dlp "YOUR_URL"` to see detailed errors
+2. Check if the video is age-restricted or region-locked
+3. Ensure your Pi has internet access
+4. Check backend logs: `sudo journalctl -u taptunes -f`
+
+### Recommended Maintenance
+
+YouTube downloads may break at any time due to YouTube API changes. It's recommended to:
+- Update yt-dlp weekly or before downloading important videos
+- Keep TapTunes updated via `git pull` and reinstall
+- Report persistent issues on the TapTunes GitHub
+
 ## Support
 
 For issues or questions:
