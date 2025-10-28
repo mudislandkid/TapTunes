@@ -5,8 +5,9 @@
 # Includes: Backend, RFID Scanner, GPIO Buttons
 #
 # Usage:
-#   sudo ./install-taptunes.sh              # Update existing installation
-#   sudo ./install-taptunes.sh --clean-install  # Fresh install (recreates venv, reinstalls deps)
+#   sudo ./install-taptunes.sh                    # Update existing installation
+#   sudo ./install-taptunes.sh --clean-install    # Fresh install (recreates venv, reinstalls deps)
+#   sudo ./install-taptunes.sh --update-ytdlp     # Update yt-dlp only (for YouTube fixes)
 
 set -e
 
@@ -24,10 +25,15 @@ NC='\033[0m' # No Color
 
 # Parse command line arguments
 CLEAN_INSTALL=false
+UPDATE_YTDLP=false
 for arg in "$@"; do
     case $arg in
         --clean-install)
             CLEAN_INSTALL=true
+            shift
+            ;;
+        --update-ytdlp)
+            UPDATE_YTDLP=true
             shift
             ;;
         --help|-h)
@@ -35,9 +41,13 @@ for arg in "$@"; do
             echo ""
             echo "Options:"
             echo "  --clean-install    Perform a fresh installation (recreate venv, reinstall all deps)"
+            echo "  --update-ytdlp     Update yt-dlp to latest version (for YouTube download fixes)"
             echo "  --help, -h         Show this help message"
             echo ""
             echo "Default behavior (no flags): Update existing installation without recreating venv"
+            echo ""
+            echo "Note: yt-dlp is only updated during --clean-install or with --update-ytdlp flag."
+            echo "      YouTube downloads may break if yt-dlp is outdated. Update regularly!"
             exit 0
             ;;
         *)
@@ -204,11 +214,16 @@ if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
     echo "   (Use --clean-install to recreate)"
     echo ""
 
-    # Always update yt-dlp on updates (YouTube breaks frequently)
-    echo "Updating yt-dlp..."
-    "$VENV_DIR/bin/pip" install --upgrade yt-dlp
-    echo "  ✓ yt-dlp updated"
-    echo ""
+    # Update yt-dlp if requested (YouTube breaks frequently)
+    if [ "$UPDATE_YTDLP" = true ]; then
+        echo "Updating yt-dlp..."
+        "$VENV_DIR/bin/pip" install --upgrade yt-dlp
+        echo "  ✓ yt-dlp updated"
+        echo ""
+    else
+        echo -e "${BLUE}ℹ️  Skipping yt-dlp update (use --update-ytdlp to update)${NC}"
+        echo ""
+    fi
 else
     echo "=========================================="
     echo "🐍 Step 2: Creating Python Virtual Environment"
