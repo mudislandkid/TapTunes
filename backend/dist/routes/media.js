@@ -296,11 +296,13 @@ router.post('/download-youtube', async (req, res) => {
                 const ytDlpArgs = [
                     '--extract-audio',
                     '--audio-format', 'mp3',
-                    '--audio-quality', '0', // Best quality
+                    '--audio-quality', '5', // Good quality (192kbps) - faster encoding on Pi Zero W
                     '--write-thumbnail',
                     '--write-info-json',
                     '--no-playlist',
                     '--newline', // Progress on new lines
+                    // Fast encoding for Pi Zero W - use audio copy when possible
+                    '--postprocessor-args', 'ffmpeg:-codec:a libmp3lame -q:a 4',
                     // Retry and timeout settings
                     '--retries', '5',
                     '--fragment-retries', '5',
