@@ -76,22 +76,37 @@ class RFIDReader:
             logger.info("Running on non-Raspberry Pi system - RFID reader disabled")
     
     def read_card(self) -> Optional[str]:
-        """Read RFID card and return card ID"""
+        """Read RFID card and return card ID (non-blocking check)"""
         if not self.reader:
             # For testing on non-Pi systems, simulate card reads
             if not self.is_raspberry_pi:
                 time.sleep(2)
                 return f"test_card_{int(time.time()) % 100}"
             return None
-        
+
         try:
-            logger.info("Waiting for RFID card...")
-            card_id, text = self.reader.read()
-            card_id_str = str(card_id)
-            logger.info(f"Card detected: {card_id_str}")
-            return card_id_str
+            # Use read_no_block instead of blocking read() to prevent CPU spin
+            # This checks once and returns immediately instead of busy-waiting
+            id, text = self.reader.read_no_block()
+            if id:
+                card_id_str = str(id)
+                logger.info(f"Card detected: {card_id_str}")
+                return card_id_str
+            return None
+        except AttributeError:
+            # Fallback: If library doesn't have read_no_block, use timeout
+            # Note: This will still block but with error handling
+            logger.warning("RFID library doesn't support non-blocking reads, using blocking mode")
+            try:
+                card_id, text = self.reader.read()
+                card_id_str = str(card_id)
+                logger.info(f"Card detected: {card_id_str}")
+                return card_id_str
+            except Exception as e:
+                logger.error(f"Error reading RFID card: {e}")
+                return None
         except Exception as e:
-            logger.error(f"Error reading RFID card: {e}")
+            # Silently ignore errors to prevent log spam (check every 0.5s is normal)
             return None
     
     def cleanup(self):
@@ -143,18 +158,19 @@ async def main():
     try:
         while True:
             card_id = rfid_reader.read_card()
-            
+
             if card_id:
                 success = backend_client.notify_card_scan(card_id)
                 if success:
                     logger.info(f"Successfully processed card: {card_id}")
                 else:
                     logger.warning(f"Failed to process card: {card_id}")
-                
+
                 # Prevent rapid repeated reads
-                await asyncio.sleep(1)
-            
-            await asyncio.sleep(0.1)
+                await asyncio.sleep(2)
+
+            # Check for cards every 500ms (2Hz) - plenty fast for RFID scanning
+            await asyncio.sleep(0.5)
             
     except KeyboardInterrupt:
         logger.info("Shutting down RFID service...")
