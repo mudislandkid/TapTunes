@@ -17,6 +17,7 @@ interface Track {
   mimeType: string
   folderId?: string
   isLiked?: boolean
+  coverArt?: string
   createdAt: string
   updatedAt: string
 }
@@ -97,11 +98,19 @@ export default function QuickPlayLibrary({ apiBase, onPlayTrack, onSwitchToLibra
             onClick={() => onPlayTrack(track)}
           >
             <motion.div
-              className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-600 rounded flex items-center justify-center"
+              className="w-8 h-8 bg-gradient-to-br from-slate-700 to-slate-600 rounded flex items-center justify-center overflow-hidden"
               whileHover={{ scale: 1.1 }}
               transition={{ duration: 0.2 }}
             >
-              <Play className="w-3 h-3 text-slate-300 ml-0.5" />
+              {track.coverArt ? (
+                <img
+                  src={track.coverArt}
+                  alt={`${track.album} cover`}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Play className="w-3 h-3 text-slate-300 ml-0.5" />
+              )}
             </motion.div>
 
             <div className="flex-1 min-w-0">
