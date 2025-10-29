@@ -14,6 +14,7 @@ interface AudioTrack {
   album?: string;
   duration?: number;
   file_path: string;
+  coverArt?: string;
 }
 
 interface Playlist {
@@ -155,7 +156,8 @@ router.post('/play-track', async (req, res) => {
         artist: track.artist,
         album: track.album,
         duration: track.duration,
-        file_path: track.filePath
+        file_path: track.filePath,
+        coverArt: track.coverArt
       }]
     };
 
@@ -211,7 +213,8 @@ router.post('/play-playlist', async (req, res) => {
         artist: track.artist,
         album: track.album,
         duration: track.duration,
-        file_path: track.filePath
+        file_path: track.filePath,
+        coverArt: track.coverArt
       }))
     };
 

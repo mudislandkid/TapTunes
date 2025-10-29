@@ -60,7 +60,6 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
       
       // Update volume from backend response (for hardware mode)
       if (typeof data.volume === 'number' && data.volume !== volume && data.playbackMode === 'hardware') {
-        console.log(`🔊 [FRONTEND] Updating volume from backend: ${data.volume}%`)
         setVolume(data.volume)
       }
     } catch (error) {

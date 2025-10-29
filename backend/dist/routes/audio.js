@@ -122,7 +122,8 @@ router.post('/play-track', async (req, res) => {
                     artist: track.artist,
                     album: track.album,
                     duration: track.duration,
-                    file_path: track.filePath
+                    file_path: track.filePath,
+                    coverArt: track.coverArt
                 }]
         };
         currentTrackIndex = 0;
@@ -174,7 +175,8 @@ router.post('/play-playlist', async (req, res) => {
                 artist: track.artist,
                 album: track.album,
                 duration: track.duration,
-                file_path: track.filePath
+                file_path: track.filePath,
+                coverArt: track.coverArt
             }))
         };
         currentTrackIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
