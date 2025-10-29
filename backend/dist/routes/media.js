@@ -907,6 +907,28 @@ router.get('/tracks', async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch tracks' });
     }
 });
+// Create radio stream
+router.post('/radio-streams', async (req, res) => {
+    try {
+        const { title, artist, streamUrl, genre, thumbnailPath } = req.body;
+        if (!title || !artist || !streamUrl) {
+            return res.status(400).json({ error: 'title, artist, and streamUrl are required' });
+        }
+        console.log('📻 [RADIO] Creating radio stream:', title);
+        const track = await mediaService.createRadioStream({
+            title,
+            artist,
+            streamUrl,
+            genre,
+            thumbnailPath
+        });
+        res.status(201).json({ track });
+    }
+    catch (error) {
+        console.error('Error creating radio stream:', error);
+        res.status(500).json({ error: 'Failed to create radio stream' });
+    }
+});
 // Get track by ID
 router.get('/tracks/:id', async (req, res) => {
     try {

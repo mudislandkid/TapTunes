@@ -10,6 +10,7 @@ export interface Track {
   duration: number;
   genre?: string;
   year?: number;
+  trackType?: 'file' | 'stream';
   filePath: string;
   fileName: string;
   originalName: string;
@@ -19,7 +20,7 @@ export interface Track {
   isLiked?: boolean;
   coverArt?: string; // URL path for frontend
   thumbnailPath?: string;
-  sourceUrl?: string;
+  sourceUrl?: string; // Stream URL for radio streams
   createdAt: string;
   updatedAt: string;
 }
@@ -125,6 +126,7 @@ export class MediaService {
       duration: dbTrack.duration,
       genre: dbTrack.genre,
       year: dbTrack.year,
+      trackType: dbTrack.track_type,
       filePath: dbTrack.file_path,
       fileName: dbTrack.file_name,
       originalName: dbTrack.original_name,
@@ -208,6 +210,24 @@ export class MediaService {
   async getTrackById(id: string): Promise<Track | null> {
     const dbTrack = await this.db.getTrackById(id);
     return dbTrack ? this.convertDbTrack(dbTrack) : null;
+  }
+
+  async createRadioStream(data: {
+    title: string;
+    artist: string;
+    streamUrl: string;
+    genre?: string;
+    thumbnailPath?: string;
+  }): Promise<Track> {
+    const dbTrack = await this.db.createRadioStream({
+      title: data.title,
+      artist: data.artist,
+      streamUrl: data.streamUrl,
+      genre: data.genre,
+      thumbnail_path: data.thumbnailPath
+    });
+
+    return this.convertDbTrack(dbTrack);
   }
 
   async updateTrack(id: string, updates: Partial<Track>): Promise<boolean> {

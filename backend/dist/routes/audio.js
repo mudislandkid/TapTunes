@@ -16,6 +16,10 @@ let playbackStartTime = Date.now();
 let playbackMode = 'hardware'; // Default to hardware playback
 let hardwareProcess = null; // Store hardware audio process
 let isKillingProcess = false; // Flag to track intentional kills
+// Helper function to get playback path (handles both files and streams)
+function getPlaybackPath(track) {
+    return track.track_type === 'stream' && track.source_url ? track.source_url : track.file_path;
+}
 let systemVolume = 75; // System volume (0-100)
 router.get('/playlists', (req, res) => {
     res.json({ playlists: [] });
@@ -123,7 +127,9 @@ router.post('/play-track', async (req, res) => {
                     artist: track.artist,
                     album: track.album,
                     duration: track.duration,
+                    track_type: track.trackType,
                     file_path: track.filePath,
+                    source_url: track.sourceUrl,
                     coverArt: track.coverArt
                 }]
         };
@@ -134,9 +140,10 @@ router.post('/play-track', async (req, res) => {
         playbackStartTime = Date.now();
         // Start hardware playback if in hardware mode
         if (playbackMode === 'hardware') {
-            console.log(`🔊 [AUDIO] Starting hardware playback for: ${track.filePath}`);
+            const playbackPath = getPlaybackPath(currentPlaylist.tracks[0]);
+            console.log(`🔊 [AUDIO] Starting hardware playback for: ${playbackPath}`);
             try {
-                await startHardwarePlayback(track.filePath, 0); // Start from beginning for new track
+                await startHardwarePlayback(playbackPath, 0); // Start from beginning for new track
                 console.log(`✅ [AUDIO] Hardware playback started successfully`);
             }
             catch (error) {
@@ -176,7 +183,9 @@ router.post('/play-playlist', async (req, res) => {
                 artist: track.artist,
                 album: track.album,
                 duration: track.duration,
+                track_type: track.trackType,
                 file_path: track.filePath,
+                source_url: track.sourceUrl,
                 coverArt: track.coverArt
             }))
         };
@@ -187,7 +196,8 @@ router.post('/play-playlist', async (req, res) => {
         playbackStartTime = Date.now();
         // Start hardware playback if in hardware mode
         if (playbackMode === 'hardware' && currentPlaylist.tracks[currentTrackIndex]) {
-            await startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+            const playbackPath = getPlaybackPath(currentPlaylist.tracks[currentTrackIndex]);
+            await startHardwarePlayback(playbackPath);
         }
         res.json({
             status: 'playing',
@@ -296,7 +306,7 @@ router.post('/next', (req, res) => {
         // Start hardware playback for new track if in hardware mode
         if (playbackMode === 'hardware' && isPlaying) {
             console.log(`🎵 [AUDIO] Starting hardware playback for next track`);
-            startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+            startHardwarePlayback(getPlaybackPath(currentPlaylist.tracks[currentTrackIndex]));
         }
         else {
             console.log(`⚠️ [AUDIO] Not starting playback (mode=${playbackMode}, playing=${isPlaying})`);
@@ -326,7 +336,7 @@ router.post('/previous', (req, res) => {
         // Restart hardware playback from beginning if in hardware mode
         if (playbackMode === 'hardware' && isPlaying && currentPlaylist?.tracks) {
             console.log(`🎵 [AUDIO] Restarting hardware playback from beginning`);
-            startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+            startHardwarePlayback(getPlaybackPath(currentPlaylist.tracks[currentTrackIndex]));
         }
     }
     else if (currentTrackIndex > 0) {
@@ -339,7 +349,7 @@ router.post('/previous', (req, res) => {
         // Start hardware playback for previous track if in hardware mode
         if (playbackMode === 'hardware' && isPlaying) {
             console.log(`🎵 [AUDIO] Starting hardware playback for previous track`);
-            startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+            startHardwarePlayback(getPlaybackPath(currentPlaylist.tracks[currentTrackIndex]));
         }
         else {
             console.log(`⚠️ [AUDIO] Not starting playback (mode=${playbackMode}, playing=${isPlaying})`);
@@ -351,7 +361,7 @@ router.post('/previous', (req, res) => {
         playbackStartTime = Date.now();
         // Restart from beginning if playing
         if (playbackMode === 'hardware' && isPlaying && currentPlaylist?.tracks) {
-            startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+            startHardwarePlayback(getPlaybackPath(currentPlaylist.tracks[currentTrackIndex]));
         }
     }
     res.json({ trackIndex: currentTrackIndex });
@@ -529,6 +539,11 @@ async function startHardwarePlayback(filePath, startPosition = 0) {
         // Clean the file path of any whitespace/newlines
         const cleanFilePath = filePath.trim();
         console.log(`🔍 [AUDIO] Cleaned filePath:`, JSON.stringify(cleanFilePath));
+        // Check if this is a stream URL
+        const isStream = cleanFilePath.startsWith('http://') || cleanFilePath.startsWith('https://');
+        if (isStream) {
+            console.log(`📻 [AUDIO] Detected stream URL - will use streaming playback`);
+        }
         // Stop existing hardware playback
         if (hardwareProcess) {
             isKillingProcess = true; // Mark that we're intentionally killing

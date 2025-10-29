@@ -10,6 +10,7 @@ export interface DatabaseTrack {
   duration: number;
   genre?: string;
   year?: number;
+  track_type?: 'file' | 'stream'; // file = local file, stream = internet radio
   file_path: string;
   file_name: string;
   original_name: string;
@@ -18,7 +19,7 @@ export interface DatabaseTrack {
   folder_id?: string;
   is_liked: boolean;
   thumbnail_path?: string;
-  source_url?: string;
+  source_url?: string; // Stream URL for radio streams
   created_at: string;
   updated_at: string;
 }
@@ -98,10 +99,31 @@ export class DatabaseService {
 
       // Create tables after connection is established
       await this.createTables();
+
+      // Run migrations
+      await this.runMigrations();
+
       console.log('✅ [DB] Database initialization complete');
     } catch (error) {
       console.error('❌ [DB] Error initializing database:', error);
       throw error;
+    }
+  }
+
+  private async runMigrations(): Promise<void> {
+    try {
+      // Add track_type column if it doesn't exist
+      await this.runQuery(`
+        SELECT track_type FROM tracks LIMIT 1
+      `).catch(async () => {
+        console.log('🔧 [DB] Running migration: Adding track_type column to tracks table');
+        await this.runQuery(`
+          ALTER TABLE tracks ADD COLUMN track_type TEXT DEFAULT 'file'
+        `);
+        console.log('✅ [DB] Migration complete: track_type column added');
+      });
+    } catch (error) {
+      console.error('❌ [DB] Error running migrations:', error);
     }
   }
 
@@ -133,7 +155,8 @@ export class DatabaseService {
         duration INTEGER NOT NULL,
         genre TEXT,
         year INTEGER,
-        file_path TEXT NOT NULL UNIQUE,
+        track_type TEXT DEFAULT 'file',
+        file_path TEXT NOT NULL,
         file_name TEXT NOT NULL,
         original_name TEXT NOT NULL,
         file_size INTEGER NOT NULL,
@@ -288,15 +311,15 @@ export class DatabaseService {
 
     const sql = `
       INSERT INTO tracks (
-        id, title, artist, album, duration, genre, year,
+        id, title, artist, album, duration, genre, year, track_type,
         file_path, file_name, original_name, file_size, mime_type,
         folder_id, is_liked, thumbnail_path, source_url, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     await this.runQuery(sql, [
       track.id, track.title, track.artist, track.album, track.duration,
-      track.genre, track.year, track.file_path, track.file_name,
+      track.genre, track.year, track.track_type || 'file', track.file_path, track.file_name,
       track.original_name, track.file_size, track.mime_type,
       track.folder_id, track.is_liked, track.thumbnail_path, track.source_url,
       track.created_at, track.updated_at
@@ -306,6 +329,57 @@ export class DatabaseService {
     if (track.folder_id) {
       await this.updateFolderTrackCount(track.folder_id);
     }
+
+    return track;
+  }
+
+  async createRadioStream(streamData: {
+    title: string;
+    artist: string; // Station name
+    streamUrl: string;
+    genre?: string;
+    thumbnail_path?: string;
+  }): Promise<DatabaseTrack> {
+    await this.ensureReady();
+
+    // For radio streams, we use placeholder values for file-related fields
+    const track: DatabaseTrack = {
+      id: this.generateId(),
+      title: streamData.title,
+      artist: streamData.artist,
+      album: 'Internet Radio',
+      duration: 0, // Streams have no duration
+      genre: streamData.genre,
+      year: undefined,
+      track_type: 'stream',
+      file_path: `stream://${this.generateId()}`, // Unique placeholder
+      file_name: 'stream',
+      original_name: streamData.title,
+      file_size: 0,
+      mime_type: 'audio/mpeg', // Assume MP3 stream
+      folder_id: undefined,
+      is_liked: false,
+      thumbnail_path: streamData.thumbnail_path,
+      source_url: streamData.streamUrl,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    const sql = `
+      INSERT INTO tracks (
+        id, title, artist, album, duration, genre, year, track_type,
+        file_path, file_name, original_name, file_size, mime_type,
+        folder_id, is_liked, thumbnail_path, source_url, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    await this.runQuery(sql, [
+      track.id, track.title, track.artist, track.album, track.duration,
+      track.genre, track.year, track.track_type, track.file_path, track.file_name,
+      track.original_name, track.file_size, track.mime_type,
+      track.folder_id, track.is_liked, track.thumbnail_path, track.source_url,
+      track.created_at, track.updated_at
+    ]);
 
     return track;
   }

@@ -42,6 +42,7 @@ class MediaService {
             duration: dbTrack.duration,
             genre: dbTrack.genre,
             year: dbTrack.year,
+            trackType: dbTrack.track_type,
             filePath: dbTrack.file_path,
             fileName: dbTrack.file_name,
             originalName: dbTrack.original_name,
@@ -118,6 +119,16 @@ class MediaService {
     async getTrackById(id) {
         const dbTrack = await this.db.getTrackById(id);
         return dbTrack ? this.convertDbTrack(dbTrack) : null;
+    }
+    async createRadioStream(data) {
+        const dbTrack = await this.db.createRadioStream({
+            title: data.title,
+            artist: data.artist,
+            streamUrl: data.streamUrl,
+            genre: data.genre,
+            thumbnail_path: data.thumbnailPath
+        });
+        return this.convertDbTrack(dbTrack);
     }
     async updateTrack(id, updates) {
         const track = await this.getTrackById(id);
