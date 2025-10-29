@@ -1105,6 +1105,24 @@ router.delete('/playlists/:id/tracks/:trackId', async (req, res) => {
         res.status(500).json({ error: 'Failed to remove track from playlist' });
     }
 });
+// Reorder playlist tracks
+router.put('/playlists/:id/reorder', async (req, res) => {
+    try {
+        const { trackIds } = req.body; // Array of track IDs in new order
+        if (!Array.isArray(trackIds)) {
+            return res.status(400).json({ error: 'trackIds array is required' });
+        }
+        const success = await mediaService.reorderPlaylistTracks(req.params.id, trackIds);
+        if (!success) {
+            return res.status(404).json({ error: 'Playlist not found' });
+        }
+        res.json({ message: 'Playlist tracks reordered successfully' });
+    }
+    catch (error) {
+        console.error('Error reordering playlist tracks:', error);
+        res.status(500).json({ error: 'Failed to reorder playlist tracks' });
+    }
+});
 // Delete playlist
 router.delete('/playlists/:id', async (req, res) => {
     try {

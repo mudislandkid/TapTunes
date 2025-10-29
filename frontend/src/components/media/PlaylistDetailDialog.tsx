@@ -35,10 +35,12 @@ export function PlaylistDetailDialog({
   const [searchResults, setSearchResults] = useState<Track[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [tracks, setTracks] = useState<Track[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   // Fetch playlist details
   useEffect(() => {
     if (open && playlistId) {
+      setError(null)
       fetchPlaylist()
     }
   }, [open, playlistId])
@@ -90,20 +92,29 @@ export function PlaylistDetailDialog({
   }
 
   const handleReorder = async (newOrder: Track[]) => {
+    const previousTracks = [...tracks]
     setTracks(newOrder)
+    setError(null)
 
     try {
       const trackIds = newOrder.map(t => t.id)
-      await fetch(`${apiBase}/media/playlists/${playlistId}/reorder`, {
+      const response = await fetch(`${apiBase}/media/playlists/${playlistId}/reorder`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ trackIds })
       })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `Failed to reorder tracks (${response.status})`)
+      }
+
       onUpdate?.()
     } catch (error) {
       console.error('Error reordering tracks:', error)
+      setError(error instanceof Error ? error.message : 'Failed to reorder tracks')
       // Revert on error
-      if (playlist) setTracks(playlist.tracks)
+      setTracks(previousTracks)
     }
   }
 
@@ -158,6 +169,12 @@ export function PlaylistDetailDialog({
             <p className="text-sm text-slate-300 mt-1">{playlist.description}</p>
           )}
         </DialogHeader>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-2">
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-12">

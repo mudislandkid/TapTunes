@@ -213,6 +213,9 @@ class MediaService {
     async removeTrackFromPlaylist(playlistId, trackId) {
         return await this.db.removeTrackFromPlaylist(playlistId, trackId);
     }
+    async reorderPlaylistTracks(playlistId, trackIds) {
+        return await this.db.reorderPlaylistTracks(playlistId, trackIds);
+    }
     async updatePlaylist(id, updates) {
         // Convert frontend updates to database format
         const dbUpdates = {};
