@@ -135,6 +135,8 @@ class MediaService {
             dbUpdates.genre = updates.genre;
         if (updates.year !== undefined)
             dbUpdates.year = updates.year;
+        if (updates.thumbnailPath !== undefined)
+            dbUpdates.thumbnail_path = updates.thumbnailPath;
         return await this.db.updateTrack(id, dbUpdates);
     }
     async moveTrackToFolder(id, folderId) {

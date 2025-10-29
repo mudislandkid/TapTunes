@@ -221,6 +221,7 @@ export class MediaService {
     if (updates.album !== undefined) dbUpdates.album = updates.album;
     if (updates.genre !== undefined) dbUpdates.genre = updates.genre;
     if (updates.year !== undefined) dbUpdates.year = updates.year;
+    if (updates.thumbnailPath !== undefined) dbUpdates.thumbnail_path = updates.thumbnailPath;
 
     return await this.db.updateTrack(id, dbUpdates);
   }
