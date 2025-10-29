@@ -284,17 +284,6 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
     setIsMetadataDialogOpen(true)
   }
 
-  const handleEditPlaylist = (playlist: Playlist) => {
-    setSelectedPlaylist(playlist)
-    setEditedPlaylist({
-      name: playlist.name,
-      description: playlist.description || '',
-      isPublic: playlist.isPublic,
-      tags: playlist.tags ? playlist.tags.join(', ') : ''
-    })
-    setIsEditPlaylistDialogOpen(true)
-  }
-
   const updateTrackMetadata = async () => {
     if (!selectedTrack) return
 
@@ -760,8 +749,8 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                   playlists={playlists}
                   apiBase={apiBase}
                   onPlayPlaylist={onPlayPlaylist}
-                  onEditPlaylist={handleEditPlaylist}
                   onDeletePlaylist={deletePlaylist}
+                  onUpdate={fetchLibraryData}
                   formatDuration={formatDuration}
                 />
               )}

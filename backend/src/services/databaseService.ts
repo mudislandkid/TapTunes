@@ -591,6 +591,25 @@ export class DatabaseService {
     }
   }
 
+  async reorderPlaylistTracks(playlistId: string, trackIds: string[]): Promise<boolean> {
+    try {
+      await this.ensureReady();
+
+      // Update position for each track
+      for (let i = 0; i < trackIds.length; i++) {
+        await this.runQuery(
+          'UPDATE playlist_tracks SET position = ? WHERE playlist_id = ? AND track_id = ?',
+          [i, playlistId, trackIds[i]]
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error reordering playlist tracks:', error);
+      return false;
+    }
+  }
+
   async updatePlaylist(id: string, updates: Partial<DatabasePlaylist>): Promise<boolean> {
     const updateFields = [];
     const updateValues = [];

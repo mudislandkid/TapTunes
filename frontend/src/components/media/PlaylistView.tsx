@@ -1,10 +1,11 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Music, Trash2, Play, Edit3 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { PlaylistDetailDialog } from './PlaylistDetailDialog'
 import type { Playlist, Track } from '../../types/media'
 import {
   staggerContainer,
@@ -16,8 +17,8 @@ interface PlaylistViewProps {
   playlists: Playlist[]
   apiBase: string
   onPlayPlaylist?: (playlist: Track[]) => void
-  onEditPlaylist?: (playlist: Playlist) => void
   onDeletePlaylist: (playlistId: string) => void
+  onUpdate?: () => void
   formatDuration: (seconds: number) => string
 }
 
@@ -25,10 +26,13 @@ export const PlaylistView = memo(function PlaylistView({
   playlists,
   apiBase,
   onPlayPlaylist,
-  onEditPlaylist,
   onDeletePlaylist,
+  onUpdate,
   formatDuration
 }: PlaylistViewProps) {
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+
   const handlePlayPlaylist = async (playlistId: string) => {
     try {
       // Fetch playlist with tracks
@@ -47,6 +51,20 @@ export const PlaylistView = memo(function PlaylistView({
     } catch (error) {
       console.error('Error playing playlist:', error)
     }
+  }
+
+  const handleEditPlaylist = (playlistId: string) => {
+    setSelectedPlaylistId(playlistId)
+    setDetailDialogOpen(true)
+  }
+
+  const handleDetailDialogClose = () => {
+    setDetailDialogOpen(false)
+    setSelectedPlaylistId(null)
+  }
+
+  const handlePlaylistUpdate = () => {
+    onUpdate?.()
   }
   return (
     <motion.div 
@@ -142,7 +160,7 @@ export const PlaylistView = memo(function PlaylistView({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onEditPlaylist?.(playlist)}
+                    onClick={() => handleEditPlaylist(playlist.id)}
                     className="glass-card border-slate-600/50"
                   >
                     <Edit3 className="w-3 h-3" />
@@ -153,6 +171,14 @@ export const PlaylistView = memo(function PlaylistView({
           </motion.div>
         ))}
       </div>
+
+      <PlaylistDetailDialog
+        playlistId={selectedPlaylistId}
+        apiBase={apiBase}
+        open={detailDialogOpen}
+        onOpenChange={handleDetailDialogClose}
+        onUpdate={handlePlaylistUpdate}
+      />
     </motion.div>
   )
 })

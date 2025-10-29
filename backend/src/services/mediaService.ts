@@ -313,6 +313,10 @@ export class MediaService {
     return await this.db.removeTrackFromPlaylist(playlistId, trackId);
   }
 
+  async reorderPlaylistTracks(playlistId: string, trackIds: string[]): Promise<boolean> {
+    return await this.db.reorderPlaylistTracks(playlistId, trackIds);
+  }
+
   async updatePlaylist(id: string, updates: { name?: string; description?: string; isPublic?: boolean; tags?: string }): Promise<boolean> {
     // Convert frontend updates to database format
     const dbUpdates: any = {};
