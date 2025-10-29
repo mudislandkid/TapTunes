@@ -20,6 +20,7 @@ import {
 
 interface TrackListViewProps {
   tracks: Track[]
+  apiBase: string
   onPlayTrack: (track: Track) => void
   formatDuration: (seconds: number) => string
   onEditTrack?: (track: Track) => void
@@ -32,6 +33,7 @@ interface TrackListViewProps {
 
 export const TrackListView = memo(function TrackListView({
   tracks,
+  apiBase,
   onPlayTrack,
   formatDuration,
   onEditTrack,
@@ -64,7 +66,7 @@ export const TrackListView = memo(function TrackListView({
                 >
                   {track.coverArt ? (
                     <img
-                      src={track.coverArt}
+                      src={`${apiBase}${track.coverArt}`}
                       alt={`${track.album} cover`}
                       className="w-full h-full object-cover"
                     />

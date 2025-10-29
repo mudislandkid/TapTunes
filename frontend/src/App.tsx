@@ -96,6 +96,7 @@ function App() {
               volume={volume}
               needsUserInteraction={needsUserInteraction}
               audioElement={audioRef.current}
+              apiBase={API_BASE}
               onPlay={handlePlay}
               onPause={handlePause}
               onNext={handleNext}

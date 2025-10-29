@@ -727,8 +727,9 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                     <p className="text-sm text-slate-400 mt-2">Try adjusting your search or upload some music</p>
                   </motion.div>
                 ) : (
-                  <TrackListView 
+                  <TrackListView
                     tracks={filteredTracks}
+                    apiBase={apiBase}
                     onPlayTrack={handlePlayTrack}
                     formatDuration={formatDuration}
                     onEnhanceMetadata={handleEnhanceMetadata}
@@ -742,9 +743,10 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
               )}
               
               {activeTab === 'folders' && (
-                <FolderView 
+                <FolderView
                   folders={folders}
                   currentFolder={currentFolder}
+                  apiBase={apiBase}
                   onFolderChange={setCurrentFolder}
                   onDeleteFolder={deleteFolder}
                   filteredTracks={filteredTracks}

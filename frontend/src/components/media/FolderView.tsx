@@ -16,6 +16,7 @@ import {
 interface FolderViewProps {
   folders: FolderType[]
   currentFolder: string | null
+  apiBase: string
   onFolderChange: (folderId: string | null) => void
   onDeleteFolder: (folderId: string) => void
   filteredTracks: Track[]
@@ -26,6 +27,7 @@ interface FolderViewProps {
 export const FolderView = memo(function FolderView({
   folders,
   currentFolder,
+  apiBase,
   onFolderChange,
   onDeleteFolder,
   filteredTracks,
@@ -137,8 +139,9 @@ export const FolderView = memo(function FolderView({
       {filteredTracks.length > 0 && (
         <motion.div variants={fadeInUp}>
           <h3 className="text-lg font-semibold text-slate-100 mb-4">Tracks</h3>
-          <TrackListView 
+          <TrackListView
             tracks={filteredTracks}
+            apiBase={apiBase}
             onPlayTrack={onPlayTrack}
             formatDuration={formatDuration}
           />

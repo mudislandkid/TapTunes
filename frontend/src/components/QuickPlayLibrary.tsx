@@ -104,7 +104,7 @@ export default function QuickPlayLibrary({ apiBase, onPlayTrack, onSwitchToLibra
             >
               {track.coverArt ? (
                 <img
-                  src={track.coverArt}
+                  src={`${apiBase}${track.coverArt}`}
                   alt={`${track.album} cover`}
                   className="w-full h-full object-cover"
                 />

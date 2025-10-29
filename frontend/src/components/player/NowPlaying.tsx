@@ -17,6 +17,7 @@ interface NowPlayingProps {
   volume: number
   needsUserInteraction: boolean
   audioElement: HTMLAudioElement | null
+  apiBase: string
   onPlay: () => void
   onPause: () => void
   onNext: () => void
@@ -35,6 +36,7 @@ export const NowPlaying = memo(function NowPlaying({
   volume,
   needsUserInteraction,
   audioElement,
+  apiBase,
   onPlay,
   onPause,
   onNext,
@@ -58,7 +60,7 @@ export const NowPlaying = memo(function NowPlaying({
                 {playbackState.currentTrack ? (
                   playbackState.currentTrack.coverArt ? (
                     <img
-                      src={playbackState.currentTrack.coverArt}
+                      src={`${apiBase}${playbackState.currentTrack.coverArt}`}
                       alt={`${playbackState.currentTrack.album} cover`}
                       className="w-full h-full object-cover"
                     />
