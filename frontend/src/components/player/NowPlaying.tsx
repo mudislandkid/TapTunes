@@ -55,7 +55,7 @@ export const NowPlaying = memo(function NowPlaying({
         <GlassCard className="p-4 md:p-8">
           <div className="flex flex-col items-center space-y-4 md:space-y-6">
             {/* Album Art */}
-            <div className="relative">
+            <div className="relative flex flex-col items-center">
               <div className="w-48 h-48 sm:w-56 sm:h-56 md:w-64 md:h-64 bg-gradient-to-br from-slate-800/40 to-slate-700/40 rounded-3xl flex items-center justify-center border border-slate-600/30 overflow-hidden">
                 {playbackState.currentTrack ? (
                   playbackState.currentTrack.coverArt ? (
@@ -92,6 +92,25 @@ export const NowPlaying = memo(function NowPlaying({
                   </div>
                 )}
               </div>
+
+              {/* Track Info - shown below album art when cover art exists */}
+              {playbackState.currentTrack && playbackState.currentTrack.coverArt && (
+                <div className="mt-4 text-center space-y-1">
+                  <h2 className="text-xl font-semibold text-slate-100">
+                    {playbackState.currentTrack.title}
+                  </h2>
+                  {playbackState.currentTrack.artist && (
+                    <p className="text-slate-200">
+                      {playbackState.currentTrack.artist}
+                    </p>
+                  )}
+                  {playbackState.currentTrack.album && (
+                    <p className="text-sm text-slate-300">
+                      {playbackState.currentTrack.album}
+                    </p>
+                  )}
+                </div>
+              )}
               
               {/* Animated ring for playing state */}
               {playbackState.isPlaying && (
