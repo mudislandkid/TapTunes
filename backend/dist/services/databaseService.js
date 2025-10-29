@@ -43,16 +43,16 @@ class DatabaseService {
     }
     async runMigrations() {
         try {
-            // Add track_type column if it doesn't exist
-            await this.runQuery(`
-        SELECT track_type FROM tracks LIMIT 1
-      `).catch(async () => {
+            // Check if track_type column exists using PRAGMA
+            const tableInfo = await this.runQuery(`PRAGMA table_info(tracks)`);
+            const hasTrackType = tableInfo.some((col) => col.name === 'track_type');
+            if (!hasTrackType) {
                 console.log('🔧 [DB] Running migration: Adding track_type column to tracks table');
                 await this.runQuery(`
           ALTER TABLE tracks ADD COLUMN track_type TEXT DEFAULT 'file'
         `);
                 console.log('✅ [DB] Migration complete: track_type column added');
-            });
+            }
         }
         catch (error) {
             console.error('❌ [DB] Error running migrations:', error);
