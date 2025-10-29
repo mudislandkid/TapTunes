@@ -17,12 +17,12 @@ app.use(cors());
 app.use(express.json({ limit: '500mb' }));
 app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
-// Serve uploaded files (album art, audio files)
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
-
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Serve uploaded files (album art, audio files) at /api/uploads to work with nginx proxy
+app.use('/api/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.use('/api/audio', audioRoutes);
 app.use('/api/rfid', rfidRoutes);

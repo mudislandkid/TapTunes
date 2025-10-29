@@ -18,11 +18,11 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 app.use((0, cors_1.default)());
 app.use(express_1.default.json({ limit: '500mb' }));
 app.use(express_1.default.urlencoded({ limit: '500mb', extended: true }));
-// Serve uploaded files (album art, audio files)
-app.use('/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+// Serve uploaded files (album art, audio files) at /api/uploads to work with nginx proxy
+app.use('/api/uploads', express_1.default.static(path_1.default.join(process.cwd(), 'uploads')));
 app.use('/api/audio', audio_1.default);
 app.use('/api/rfid', rfid_1.default);
 app.use('/api/media', media_1.default);
