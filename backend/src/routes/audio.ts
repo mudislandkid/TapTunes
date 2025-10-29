@@ -365,15 +365,33 @@ router.post('/previous', (req, res) => {
   console.log(`   Is playing: ${isPlaying}`);
   console.log(`   Playback mode: ${playbackMode}`);
 
-  if (currentTrackIndex > 0) {
+  // Calculate current playback position
+  const elapsed = isPlaying ? (Date.now() - playbackStartTime) / 1000 : 0;
+  const currentPosition = currentTime + elapsed;
+
+  console.log(`   Current position: ${currentPosition.toFixed(1)}s`);
+
+  // If we're more than 3 seconds into the track, restart current track
+  if (currentPosition > 3) {
+    console.log(`🔄 [AUDIO] Restarting current track from beginning`);
+    currentTime = 0;
+    playbackStartTime = Date.now();
+
+    // Restart hardware playback from beginning if in hardware mode
+    if (playbackMode === 'hardware' && isPlaying && currentPlaylist?.tracks) {
+      console.log(`🎵 [AUDIO] Restarting hardware playback from beginning`);
+      startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+    }
+  } else if (currentTrackIndex > 0) {
+    // We're at the beginning, go to actual previous track
     currentTrackIndex--;
-    currentTime = 0; // Reset time for new track
+    currentTime = 0;
     duration = currentPlaylist.tracks[currentTrackIndex]?.duration || 180;
     playbackStartTime = Date.now();
 
     console.log(`✅ [AUDIO] Going back to track ${currentTrackIndex + 1}/${currentPlaylist.tracks.length}: "${currentPlaylist.tracks[currentTrackIndex].title}"`);
 
-    // Start hardware playback for new track if in hardware mode
+    // Start hardware playback for previous track if in hardware mode
     if (playbackMode === 'hardware' && isPlaying) {
       console.log(`🎵 [AUDIO] Starting hardware playback for previous track`);
       startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
@@ -381,8 +399,16 @@ router.post('/previous', (req, res) => {
       console.log(`⚠️ [AUDIO] Not starting playback (mode=${playbackMode}, playing=${isPlaying})`);
     }
   } else {
-    console.log(`⚠️ [AUDIO] Cannot go back: already at first track or no playlist loaded`);
+    console.log(`⚠️ [AUDIO] Already at first track and beginning - restarting from 0:00`);
+    currentTime = 0;
+    playbackStartTime = Date.now();
+
+    // Restart from beginning if playing
+    if (playbackMode === 'hardware' && isPlaying && currentPlaylist?.tracks) {
+      startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+    }
   }
+
   res.json({ trackIndex: currentTrackIndex });
 });
 
