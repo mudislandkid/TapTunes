@@ -1,6 +1,6 @@
 import { useState, useEffect, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Music, Shuffle, Play, FolderPlus, Plus } from 'lucide-react'
+import { Music, Shuffle, Play, FolderPlus, Plus, Radio } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -50,6 +50,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   const [isAddToPlaylistDialogOpen, setIsAddToPlaylistDialogOpen] = useState(false)
   const [isDeleteTrackDialogOpen, setIsDeleteTrackDialogOpen] = useState(false)
   const [isMetadataDialogOpen, setIsMetadataDialogOpen] = useState(false)
+  const [isAddRadioStreamDialogOpen, setIsAddRadioStreamDialogOpen] = useState(false)
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -71,6 +72,12 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   const [editedTrack, setEditedTrack] = useState<Partial<Track>>({})
   const [selectedFolderId, setSelectedFolderId] = useState<string>('')
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string>('')
+  const [newRadioStream, setNewRadioStream] = useState({
+    title: '',
+    artist: '',
+    streamUrl: '',
+    genre: ''
+  })
 
   // Fetch library data from API
   const fetchLibraryData = async () => {
@@ -204,6 +211,37 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
       }
     } catch (error) {
       console.error('Error creating playlist:', error)
+    }
+  }
+
+  const createRadioStream = async () => {
+    if (!newRadioStream.title.trim() || !newRadioStream.artist.trim() || !newRadioStream.streamUrl.trim()) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/media/radio-streams`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(newRadioStream)
+      })
+
+      if (response.ok) {
+        setNewRadioStream({
+          title: '',
+          artist: '',
+          streamUrl: '',
+          genre: ''
+        })
+        setIsAddRadioStreamDialogOpen(false)
+        fetchLibraryData() // Refresh data
+      } else {
+        console.error('Failed to create radio stream')
+      }
+    } catch (error) {
+      console.error('Error creating radio stream:', error)
     }
   }
 
@@ -538,6 +576,90 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
             onRefreshLibrary={fetchLibraryData}
             dragOver={dragOver}
           />
+
+          {activeTab === 'tracks' && (
+            <Dialog open={isAddRadioStreamDialogOpen} onOpenChange={setIsAddRadioStreamDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="glass-card border-slate-600/50"
+                >
+                  <Radio className="w-4 h-4 mr-2" />
+                  Add Radio Stream
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="glass-card border-slate-700/50">
+                <DialogHeader>
+                  <DialogTitle className="text-slate-100">Add Internet Radio Stream</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="streamTitle">Stream Title</Label>
+                    <Input
+                      id="streamTitle"
+                      value={newRadioStream.title}
+                      onChange={(e) => setNewRadioStream(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="e.g., BBC Radio 1"
+                      className="glass-card border-slate-600/50"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="streamArtist">Station Name</Label>
+                    <Input
+                      id="streamArtist"
+                      value={newRadioStream.artist}
+                      onChange={(e) => setNewRadioStream(prev => ({ ...prev, artist: e.target.value }))}
+                      placeholder="e.g., BBC"
+                      className="glass-card border-slate-600/50"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="streamUrl">Stream URL</Label>
+                    <Input
+                      id="streamUrl"
+                      value={newRadioStream.streamUrl}
+                      onChange={(e) => setNewRadioStream(prev => ({ ...prev, streamUrl: e.target.value }))}
+                      placeholder="http://stream.example.com/radio"
+                      className="glass-card border-slate-600/50"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="streamGenre">Genre (optional)</Label>
+                    <Input
+                      id="streamGenre"
+                      value={newRadioStream.genre}
+                      onChange={(e) => setNewRadioStream(prev => ({ ...prev, genre: e.target.value }))}
+                      placeholder="e.g., Pop, Rock, News"
+                      className="glass-card border-slate-600/50"
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsAddRadioStreamDialogOpen(false)
+                        setNewRadioStream({
+                          title: '',
+                          artist: '',
+                          streamUrl: '',
+                          genre: ''
+                        })
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={createRadioStream}
+                      disabled={!newRadioStream.title.trim() || !newRadioStream.artist.trim() || !newRadioStream.streamUrl.trim()}
+                      className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                    >
+                      Add Stream
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
 
           {activeTab === 'tracks' && filteredTracks.length > 0 && (
             <>

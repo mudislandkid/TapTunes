@@ -6,8 +6,10 @@ export interface Track {
   duration: number // in seconds
   genre?: string
   year?: number
+  trackType?: 'file' | 'stream'
   coverArt?: string
   filePath: string
+  sourceUrl?: string // Stream URL for radio streams
   isLiked?: boolean
   folderId?: string
 }

@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { motion } from 'framer-motion'
-import { Music, Heart, Play, MoreHorizontal, Edit, FolderPlus, Trash2, Download, Sparkles, ListMusic } from 'lucide-react'
+import { Music, Heart, Play, MoreHorizontal, Edit, FolderPlus, Trash2, Download, Sparkles, ListMusic, Radio } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -70,6 +70,8 @@ export const TrackListView = memo(function TrackListView({
                       alt={`${track.album} cover`}
                       className="w-full h-full object-cover"
                     />
+                  ) : track.trackType === 'stream' ? (
+                    <Radio className="w-5 h-5 text-purple-400" />
                   ) : (
                     <Music className="w-5 h-5 text-slate-300" />
                   )}

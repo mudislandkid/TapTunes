@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Play, Music, Clock } from 'lucide-react'
+import { Play, Music, Clock, Radio } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { fadeInUp, buttonPulse } from '../lib/animations'
 
@@ -10,7 +10,9 @@ interface Track {
   artist: string
   album: string
   duration: number
+  trackType?: 'file' | 'stream'
   filePath: string
+  sourceUrl?: string
   fileName: string
   originalName: string
   fileSize: number
@@ -108,6 +110,8 @@ export default function QuickPlayLibrary({ apiBase, onPlayTrack, onSwitchToLibra
                   alt={`${track.album} cover`}
                   className="w-full h-full object-cover"
                 />
+              ) : track.trackType === 'stream' ? (
+                <Radio className="w-3 h-3 text-purple-400" />
               ) : (
                 <Play className="w-3 h-3 text-slate-300 ml-0.5" />
               )}
