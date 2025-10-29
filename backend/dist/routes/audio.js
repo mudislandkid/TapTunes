@@ -15,6 +15,7 @@ let duration = 0; // in seconds
 let playbackStartTime = Date.now();
 let playbackMode = 'hardware'; // Default to hardware playback
 let hardwareProcess = null; // Store hardware audio process
+let isKillingProcess = false; // Flag to track intentional kills
 let systemVolume = 75; // System volume (0-100)
 router.get('/playlists', (req, res) => {
     res.json({ playlists: [] });
@@ -474,8 +475,12 @@ async function startHardwarePlayback(filePath, startPosition = 0) {
         console.log(`🔍 [AUDIO] Cleaned filePath:`, JSON.stringify(cleanFilePath));
         // Stop existing hardware playback
         if (hardwareProcess) {
+            isKillingProcess = true; // Mark that we're intentionally killing
             hardwareProcess.kill();
             hardwareProcess = null;
+            // Wait a bit for the exit handler to complete
+            await new Promise(resolve => setTimeout(resolve, 50));
+            isKillingProcess = false;
         }
         // Determine which audio player to use based on platform
         let command;
@@ -672,6 +677,11 @@ async function startHardwarePlayback(filePath, startPosition = 0) {
         hardwareProcess.on('exit', (code) => {
             console.log(`🏁 [HARDWARE] Hardware playback process exited with code ${code}`);
             hardwareProcess = null;
+            // Ignore exit events for intentionally killed processes
+            if (isKillingProcess) {
+                console.log(`🔇 [HARDWARE] Ignoring exit event for intentionally killed process`);
+                return;
+            }
             // Auto-advance to next track if playback finished naturally
             if (code === 0 && isPlaying && currentPlaylist?.tracks && currentTrackIndex < currentPlaylist.tracks.length - 1) {
                 currentTrackIndex++;
