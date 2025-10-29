@@ -275,14 +275,14 @@ router.post('/play', async (req, res) => {
 
 router.post('/pause', (req, res) => {
   isPlaying = false;
-  
+
   // Pause hardware playback if in hardware mode
   if (playbackMode === 'hardware' && hardwareProcess) {
     try {
       // For mpg123, we need to stop and remember position
       // For mpv, we can use stdin
       const isUsingMpv = hardwareProcess.stdin && hardwareProcess.stdin.writable;
-      
+
       if (isUsingMpv) {
         console.log(`⏸️ [AUDIO] Pausing mpv playback via stdin`);
         hardwareProcess.stdin.write(' '); // Space toggles pause in mpv
@@ -292,14 +292,21 @@ router.post('/pause', (req, res) => {
         const elapsed = (Date.now() - playbackStartTime) / 1000;
         currentTime = Math.min(currentTime + elapsed, duration);
         console.log(`💾 [AUDIO] Saved position: ${currentTime}s / ${duration}s`);
+
+        // Mark that we're intentionally killing for pause
+        isKillingProcess = true;
         hardwareProcess.kill();
         hardwareProcess = null;
+        // Reset flag after a short delay
+        setTimeout(() => {
+          isKillingProcess = false;
+        }, 100);
       }
     } catch (error) {
       console.error('Error pausing hardware playback:', error);
     }
   }
-  
+
   res.json({ status: 'paused' });
 });
 
@@ -322,31 +329,59 @@ router.post('/stop', (req, res) => {
 });
 
 router.post('/next', (req, res) => {
+  console.log(`⏭️ [AUDIO] Next track request`);
+  console.log(`   Playlist exists: ${!!currentPlaylist}`);
+  console.log(`   Playlist tracks: ${currentPlaylist?.tracks?.length || 0}`);
+  console.log(`   Current index: ${currentTrackIndex}`);
+  console.log(`   Is playing: ${isPlaying}`);
+  console.log(`   Playback mode: ${playbackMode}`);
+
   if (currentPlaylist?.tracks && currentTrackIndex < currentPlaylist.tracks.length - 1) {
     currentTrackIndex++;
     currentTime = 0; // Reset time for new track
     duration = currentPlaylist.tracks[currentTrackIndex]?.duration || 180;
     playbackStartTime = Date.now();
 
+    console.log(`✅ [AUDIO] Advancing to track ${currentTrackIndex + 1}/${currentPlaylist.tracks.length}: "${currentPlaylist.tracks[currentTrackIndex].title}"`);
+
     // Start hardware playback for new track if in hardware mode
     if (playbackMode === 'hardware' && isPlaying) {
+      console.log(`🎵 [AUDIO] Starting hardware playback for next track`);
       startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+    } else {
+      console.log(`⚠️ [AUDIO] Not starting playback (mode=${playbackMode}, playing=${isPlaying})`);
     }
+  } else {
+    console.log(`⚠️ [AUDIO] Cannot advance: at end of playlist or no playlist loaded`);
   }
   res.json({ trackIndex: currentTrackIndex });
 });
 
 router.post('/previous', (req, res) => {
+  console.log(`⏮️ [AUDIO] Previous track request`);
+  console.log(`   Playlist exists: ${!!currentPlaylist}`);
+  console.log(`   Playlist tracks: ${currentPlaylist?.tracks?.length || 0}`);
+  console.log(`   Current index: ${currentTrackIndex}`);
+  console.log(`   Is playing: ${isPlaying}`);
+  console.log(`   Playback mode: ${playbackMode}`);
+
   if (currentTrackIndex > 0) {
     currentTrackIndex--;
     currentTime = 0; // Reset time for new track
     duration = currentPlaylist.tracks[currentTrackIndex]?.duration || 180;
     playbackStartTime = Date.now();
 
+    console.log(`✅ [AUDIO] Going back to track ${currentTrackIndex + 1}/${currentPlaylist.tracks.length}: "${currentPlaylist.tracks[currentTrackIndex].title}"`);
+
     // Start hardware playback for new track if in hardware mode
     if (playbackMode === 'hardware' && isPlaying) {
+      console.log(`🎵 [AUDIO] Starting hardware playback for previous track`);
       startHardwarePlayback(currentPlaylist.tracks[currentTrackIndex].file_path);
+    } else {
+      console.log(`⚠️ [AUDIO] Not starting playback (mode=${playbackMode}, playing=${isPlaying})`);
     }
+  } else {
+    console.log(`⚠️ [AUDIO] Cannot go back: already at first track or no playlist loaded`);
   }
   res.json({ trackIndex: currentTrackIndex });
 });
