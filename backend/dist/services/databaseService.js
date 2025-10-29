@@ -44,7 +44,7 @@ class DatabaseService {
     async runMigrations() {
         try {
             // Check if track_type column exists using PRAGMA
-            const tableInfo = await this.runQuery(`PRAGMA table_info(tracks)`);
+            const tableInfo = await this.allQuery(`PRAGMA table_info(tracks)`);
             const hasTrackType = tableInfo.some((col) => col.name === 'track_type');
             if (!hasTrackType) {
                 console.log('🔧 [DB] Running migration: Adding track_type column to tracks table');

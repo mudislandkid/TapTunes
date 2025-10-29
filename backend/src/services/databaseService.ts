@@ -113,7 +113,7 @@ export class DatabaseService {
   private async runMigrations(): Promise<void> {
     try {
       // Check if track_type column exists using PRAGMA
-      const tableInfo: any = await this.runQuery(`PRAGMA table_info(tracks)`);
+      const tableInfo: any[] = await this.allQuery(`PRAGMA table_info(tracks)`);
       const hasTrackType = tableInfo.some((col: any) => col.name === 'track_type');
 
       if (!hasTrackType) {
