@@ -21,4 +21,4 @@ VOLUME_MAX = 100
 DEBOUNCE_TIME = 200  # Ignore button presses within 200ms of each other
 
 # Backend API configuration
-BACKEND_URL = 'http://localhost:3001'
+BACKEND_URL = 'http://localhost:3001/api'
