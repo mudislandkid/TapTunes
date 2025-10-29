@@ -14,6 +14,7 @@ import {
 
 interface PlaylistViewProps {
   playlists: Playlist[]
+  apiBase: string
   onPlayPlaylist?: (playlist: Track[]) => void
   onEditPlaylist?: (playlist: Playlist) => void
   onDeletePlaylist: (playlistId: string) => void
@@ -22,11 +23,31 @@ interface PlaylistViewProps {
 
 export const PlaylistView = memo(function PlaylistView({
   playlists,
+  apiBase,
   onPlayPlaylist,
   onEditPlaylist,
   onDeletePlaylist,
   formatDuration
 }: PlaylistViewProps) {
+  const handlePlayPlaylist = async (playlistId: string) => {
+    try {
+      // Fetch playlist with tracks
+      const response = await fetch(`${apiBase}/media/playlists/${playlistId}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch playlist')
+      }
+      const data = await response.json()
+
+      // Play the playlist with tracks
+      if (data.tracks && data.tracks.length > 0) {
+        onPlayPlaylist?.(data.tracks)
+      } else {
+        console.warn('Playlist has no tracks')
+      }
+    } catch (error) {
+      console.error('Error playing playlist:', error)
+    }
+  }
   return (
     <motion.div 
       className="space-y-4"
@@ -112,7 +133,7 @@ export const PlaylistView = memo(function PlaylistView({
                 <div className="flex space-x-2">
                   <Button
                     size="sm"
-                    onClick={() => onPlayPlaylist?.(playlist.tracks)}
+                    onClick={() => handlePlayPlaylist(playlist.id)}
                     className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                   >
                     <Play className="w-3 h-3 mr-1" />

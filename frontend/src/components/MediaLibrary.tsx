@@ -756,8 +756,9 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
               )}
               
               {activeTab === 'playlists' && (
-                <PlaylistView 
+                <PlaylistView
                   playlists={playlists}
+                  apiBase={apiBase}
                   onPlayPlaylist={onPlayPlaylist}
                   onEditPlaylist={handleEditPlaylist}
                   onDeletePlaylist={deletePlaylist}
