@@ -111,12 +111,15 @@ router.get('/logs', async (req, res) => {
 // Network configuration endpoints
 router.get('/network', async (req, res) => {
   try {
+    const currentConnection = await getCurrentWifiConnection();
     const networkInfo = {
       interfaces: getNetworkInfo(),
       wifiNetworks: await getAvailableWifiNetworks(),
-      currentConnection: await getCurrentWifiConnection()
+      currentConnection: currentConnection?.ssid || null,
+      signalStrength: currentConnection?.signalStrength || null,
+      ipAddress: currentConnection?.ipAddress || null
     };
-    
+
     res.json(networkInfo);
   } catch (error) {
     console.error('Error getting network info:', error);
@@ -262,11 +265,43 @@ async function getAvailableWifiNetworks(): Promise<string[]> {
   }
 }
 
-async function getCurrentWifiConnection(): Promise<string | null> {
+async function getCurrentWifiConnection(): Promise<{
+  ssid: string;
+  signalStrength: number | null;
+  ipAddress: string | null;
+} | null> {
   try {
     if (os.platform() === 'linux') {
-      const { stdout } = await execAsync("iwgetid -r");
-      return stdout.trim() || null;
+      // Get SSID
+      const { stdout: ssidOutput } = await execAsync("iwgetid -r");
+      const ssid = ssidOutput.trim();
+
+      if (!ssid) return null;
+
+      // Get signal strength (in dBm and convert to percentage)
+      let signalStrength: number | null = null;
+      try {
+        const { stdout: signalOutput } = await execAsync("iwconfig 2>/dev/null | grep 'Signal level' | awk -F'=' '{print $3}' | awk '{print $1}'");
+        const signalDbm = parseInt(signalOutput.trim());
+        if (!isNaN(signalDbm)) {
+          // Convert dBm to percentage (rough approximation)
+          // -30 dBm = 100%, -90 dBm = 0%
+          signalStrength = Math.min(100, Math.max(0, Math.round((signalDbm + 90) * 100 / 60)));
+        }
+      } catch (error) {
+        console.warn('Could not get signal strength:', error);
+      }
+
+      // Get IP address for wireless interface
+      let ipAddress: string | null = null;
+      try {
+        const { stdout: ipOutput } = await execAsync("ip addr show wlan0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1");
+        ipAddress = ipOutput.trim() || null;
+      } catch (error) {
+        console.warn('Could not get IP address:', error);
+      }
+
+      return { ssid, signalStrength, ipAddress };
     }
     return null;
   } catch (error) {

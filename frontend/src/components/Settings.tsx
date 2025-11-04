@@ -126,6 +126,19 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
     diskUsage: 0,
     temperature: 0
   });
+  const [networkInfo, setNetworkInfo] = useState<{
+    currentConnection: string | null;
+    signalStrength: number | null;
+    ipAddress: string | null;
+    interfaces: Record<string, Array<{ address: string; family: string; mac: string }>>;
+    wifiNetworks: string[];
+  }>({
+    currentConnection: null,
+    signalStrength: null,
+    ipAddress: null,
+    interfaces: {},
+    wifiNetworks: []
+  });
   const [isUpdating, setIsUpdating] = useState(false);
   const [sleepTimerActive, setSleepTimerActive] = useState(false);
   const [sleepTimeRemaining, setSleepTimeRemaining] = useState(0);
@@ -134,6 +147,7 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
   useEffect(() => {
     loadSettings();
     fetchSystemInfo();
+    fetchNetworkInfo();
   }, []);
 
   // Save settings to backend whenever they change
@@ -214,6 +228,30 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
         memoryUsage: 0,
         diskUsage: 0,
         temperature: 0
+      });
+    }
+  };
+
+  const fetchNetworkInfo = async () => {
+    try {
+      const response = await fetch('/api/system/network');
+      if (response.ok) {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const info = await response.json();
+          setNetworkInfo(info);
+          return;
+        }
+      }
+      throw new Error(`API returned non-JSON response: ${response.status}`);
+    } catch (error) {
+      console.warn('Network info not available:', error);
+      setNetworkInfo({
+        currentConnection: null,
+        signalStrength: null,
+        ipAddress: null,
+        interfaces: {},
+        wifiNetworks: []
       });
     }
   };
@@ -765,11 +803,74 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
 
         {/* Network Settings */}
         <TabsContent value="network" className="space-y-6 mt-8">
+          {/* Current Network Status */}
           <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-blue-400">
                 <Wifi className="w-5 h-5" />
-                Network Configuration
+                Network Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-400">Current WiFi</p>
+                  <p className="text-white font-medium">
+                    {networkInfo.currentConnection || 'Not connected'}
+                  </p>
+                </div>
+                {networkInfo.signalStrength !== null && (
+                  <div>
+                    <p className="text-gray-400">Signal Strength</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white font-medium">{networkInfo.signalStrength}%</p>
+                      <div className="flex-1 bg-gray-700/50 rounded-full h-2 max-w-[100px]">
+                        <div
+                          className={`h-2 rounded-full transition-all ${
+                            networkInfo.signalStrength > 70 ? 'bg-green-500' :
+                            networkInfo.signalStrength > 40 ? 'bg-yellow-500' :
+                            'bg-red-500'
+                          }`}
+                          style={{ width: `${networkInfo.signalStrength}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {networkInfo.ipAddress && (
+                  <div>
+                    <p className="text-gray-400">WiFi IP Address</p>
+                    <p className="text-white font-medium">{networkInfo.ipAddress}</p>
+                  </div>
+                )}
+                {Object.entries(networkInfo.interfaces).map(([name, addrs]) => (
+                  addrs.map((addr, idx) => addr.family === 'IPv4' && name !== 'wlan0' && (
+                    <div key={`${name}-${idx}`}>
+                      <p className="text-gray-400">{name} IP Address</p>
+                      <p className="text-white font-medium">{addr.address}</p>
+                    </div>
+                  ))
+                ))}
+              </div>
+
+              <Button
+                onClick={fetchNetworkInfo}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Network Info
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* WiFi Configuration */}
+          <Card className="bg-gray-900/50 border-gray-700/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-blue-400">
+                <Wifi className="w-5 h-5" />
+                WiFi Configuration
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
