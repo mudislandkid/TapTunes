@@ -26,6 +26,8 @@ interface Playlist {
 }
 
 let currentPlaylist: Playlist | null = null;
+let originalPlaylist: Playlist | null = null; // Store original order for unshuffle
+let isShuffled = false;
 let currentTrackIndex = 0;
 let isPlaying = false;
 let currentTime = 0; // in seconds
@@ -84,7 +86,8 @@ router.get('/current', (req, res) => {
     currentTime: Math.floor(currentTime),
     duration: Math.floor(duration),
     playbackMode,
-    volume: systemVolume
+    volume: systemVolume,
+    isShuffled
   };
   
   // Log current state (but not too frequently)
@@ -192,6 +195,10 @@ router.post('/play-track', async (req, res) => {
     console.log(`📁 [AUDIO] File path: ${track.filePath}`);
     console.log(`⏱️ [AUDIO] Track duration from database: ${track.duration} seconds`);
 
+    // Reset shuffle state when playing a new single track
+    isShuffled = false;
+    originalPlaylist = null;
+
     // Create single-track playlist
     currentPlaylist = {
       id: 'single-track',
@@ -247,10 +254,14 @@ router.post('/play-track', async (req, res) => {
 router.post('/play-playlist', async (req, res) => {
   try {
     const { tracks, startIndex = 0 } = req.body;
-    
+
     if (!tracks || !Array.isArray(tracks) || tracks.length === 0) {
       return res.status(400).json({ error: 'Tracks array is required' });
     }
+
+    // Reset shuffle state when loading new playlist
+    isShuffled = false;
+    originalPlaylist = null;
 
     // Create playlist from tracks
     currentPlaylist = {
@@ -511,6 +522,85 @@ router.post('/volume', async (req, res) => {
   }
   
   res.json({ volume: systemVolume, status: 'volume_set', playbackMode });
+});
+
+// Toggle shuffle
+router.post('/shuffle', (req, res) => {
+  console.log(`🔀 [AUDIO] Shuffle toggle request - current state: ${isShuffled}`);
+
+  if (!currentPlaylist?.tracks || currentPlaylist.tracks.length === 0) {
+    console.log(`❌ [AUDIO] Cannot shuffle - no playlist loaded`);
+    return res.status(400).json({ error: 'No playlist loaded' });
+  }
+
+  if (!isShuffled) {
+    // Enable shuffle
+    console.log(`🔀 [AUDIO] Enabling shuffle`);
+
+    // Save original playlist order
+    originalPlaylist = {
+      ...currentPlaylist,
+      tracks: [...currentPlaylist.tracks]
+    };
+
+    // Get the current track before shuffling
+    const currentTrack = currentPlaylist.tracks[currentTrackIndex];
+
+    // Create a shuffled copy of the tracks
+    const shuffledTracks = [...currentPlaylist.tracks];
+
+    // Fisher-Yates shuffle algorithm
+    for (let i = shuffledTracks.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledTracks[i], shuffledTracks[j]] = [shuffledTracks[j], shuffledTracks[i]];
+    }
+
+    // Update the playlist with shuffled tracks
+    currentPlaylist = {
+      ...currentPlaylist,
+      tracks: shuffledTracks
+    };
+
+    // Find where the current track ended up in the shuffled playlist
+    currentTrackIndex = shuffledTracks.findIndex(track => track.id === currentTrack?.id);
+    if (currentTrackIndex === -1) {
+      currentTrackIndex = 0; // Fallback to first track if not found
+    }
+
+    isShuffled = true;
+    console.log(`✅ [AUDIO] Shuffle enabled - current track now at index ${currentTrackIndex}`);
+  } else {
+    // Disable shuffle - restore original order
+    console.log(`🔀 [AUDIO] Disabling shuffle - restoring original order`);
+
+    if (originalPlaylist) {
+      // Get the current track before unshuffling
+      const currentTrack = currentPlaylist.tracks[currentTrackIndex];
+
+      // Restore original playlist
+      currentPlaylist = {
+        ...originalPlaylist,
+        tracks: [...originalPlaylist.tracks]
+      };
+
+      // Find where the current track is in the original playlist
+      currentTrackIndex = currentPlaylist.tracks.findIndex(track => track.id === currentTrack?.id);
+      if (currentTrackIndex === -1) {
+        currentTrackIndex = 0; // Fallback to first track if not found
+      }
+
+      console.log(`✅ [AUDIO] Shuffle disabled - current track now at index ${currentTrackIndex}`);
+    }
+
+    isShuffled = false;
+    originalPlaylist = null;
+  }
+
+  res.json({
+    isShuffled,
+    trackIndex: currentTrackIndex,
+    status: isShuffled ? 'shuffled' : 'unshuffled'
+  });
 });
 
 // System volume control function

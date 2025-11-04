@@ -57,10 +57,16 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
         console.log(`🔄 [FRONTEND] Updating playback mode from backend: ${data.playbackMode}`)
         setPlaybackMode(data.playbackMode)
       }
-      
+
       // Update volume from backend response (for hardware mode)
       if (typeof data.volume === 'number' && data.volume !== volume && data.playbackMode === 'hardware') {
         setVolume(data.volume)
+      }
+
+      // Update shuffle state from backend response
+      if (typeof data.isShuffled === 'boolean' && data.isShuffled !== isShuffled) {
+        console.log(`🔀 [FRONTEND] Updating shuffle state from backend: ${data.isShuffled}`)
+        setIsShuffled(data.isShuffled)
       }
     } catch (error) {
       console.error('Failed to fetch playback state:', error)
@@ -681,7 +687,21 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
     initializeAudioEnhancement,
     
     // Toggles
-    onShuffleToggle: () => setIsShuffled(!isShuffled),
+    onShuffleToggle: async () => {
+      try {
+        console.log(`🔀 [FRONTEND] Toggling shuffle from ${isShuffled} to ${!isShuffled}`)
+        const response = await fetch(`${apiBase}/audio/shuffle`, { method: 'POST' })
+        if (response.ok) {
+          const data = await response.json()
+          setIsShuffled(data.isShuffled)
+          console.log(`✅ [FRONTEND] Shuffle ${data.isShuffled ? 'enabled' : 'disabled'}`)
+          // Refresh playback state to get updated track index
+          fetchPlaybackState()
+        }
+      } catch (error) {
+        console.error('Failed to toggle shuffle:', error)
+      }
+    },
     onRepeatModeChange: () => setRepeatMode(repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off'),
     
     // Audio element props
