@@ -184,3 +184,6 @@ Users can now:
 
 ### Deployment
 Included in the build above - no additional configuration needed.
+
+### Bug Fix
+Fixed album art URL construction in `AudiobookView.tsx` to use `/uploads/` prefix instead of `${apiBase}/`, ensuring uploaded cover images load correctly.

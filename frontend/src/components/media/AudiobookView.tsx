@@ -98,7 +98,7 @@ export const AudiobookView = memo(function AudiobookView({
                       transition={{ duration: 0.2 }}
                     >
                       <img
-                        src={`${apiBase}/${audiobook.album_art_path}`}
+                        src={`/uploads/${audiobook.album_art_path}`}
                         alt={audiobook.title}
                         className="w-full h-full object-cover"
                       />
