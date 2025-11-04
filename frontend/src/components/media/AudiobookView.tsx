@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Book, Trash2, Play } from 'lucide-react';
+import { Book, Trash2, Play, Edit3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GlassCard } from '@/components/ui/card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -56,6 +56,12 @@ export const AudiobookView = memo(function AudiobookView({
   const handlePlay = (e: React.MouseEvent, audiobookId: string) => {
     e.stopPropagation();
     onPlayAudiobook(audiobookId);
+  };
+
+  const handleEdit = (e: React.MouseEvent, audiobookId: string) => {
+    e.stopPropagation();
+    setSelectedAudiobookId(audiobookId);
+    setDetailDialogOpen(true);
   };
 
   return (
@@ -130,6 +136,14 @@ export const AudiobookView = memo(function AudiobookView({
                       onClick={(e) => handlePlay(e, audiobook.id)}
                     >
                       <Play className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-slate-400 hover:text-slate-300 hover:bg-slate-700/20"
+                      onClick={(e) => handleEdit(e, audiobook.id)}
+                    >
+                      <Edit3 className="w-4 h-4" />
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
