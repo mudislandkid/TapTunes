@@ -56,6 +56,26 @@ export interface DatabasePlaylistTrack {
   created_at: string;
 }
 
+export interface DatabaseAudiobook {
+  id: string;
+  title: string;
+  author: string;
+  description?: string;
+  track_count: number;
+  duration: number;
+  album_art_path?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DatabaseAudiobookTrack {
+  id: string;
+  audiobook_id: string;
+  track_id: string;
+  position: number;
+  created_at: string;
+}
+
 export interface DatabaseRFIDCard {
   id: string;
   card_id: string; // The actual RFID card ID
@@ -198,6 +218,31 @@ export class DatabaseService {
         UNIQUE(playlist_id, track_id)
       )`,
 
+      // Audiobooks table
+      `CREATE TABLE IF NOT EXISTS audiobooks (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        author TEXT NOT NULL,
+        description TEXT,
+        track_count INTEGER DEFAULT 0,
+        duration INTEGER DEFAULT 0,
+        album_art_path TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )`,
+
+      // Audiobook tracks junction table
+      `CREATE TABLE IF NOT EXISTS audiobook_tracks (
+        id TEXT PRIMARY KEY,
+        audiobook_id TEXT NOT NULL,
+        track_id TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY (audiobook_id) REFERENCES audiobooks (id) ON DELETE CASCADE,
+        FOREIGN KEY (track_id) REFERENCES tracks (id) ON DELETE CASCADE,
+        UNIQUE(audiobook_id, track_id)
+      )`,
+
       // RFID cards table
       `CREATE TABLE IF NOT EXISTS rfid_cards (
         id TEXT PRIMARY KEY,
@@ -226,6 +271,8 @@ export class DatabaseService {
       'CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks (artist)',
       'CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist_id ON playlist_tracks (playlist_id)',
       'CREATE INDEX IF NOT EXISTS idx_playlist_tracks_track_id ON playlist_tracks (track_id)',
+      'CREATE INDEX IF NOT EXISTS idx_audiobook_tracks_audiobook_id ON audiobook_tracks (audiobook_id)',
+      'CREATE INDEX IF NOT EXISTS idx_audiobook_tracks_track_id ON audiobook_tracks (track_id)',
       'CREATE INDEX IF NOT EXISTS idx_folders_parent_id ON folders (parent_id)'
     ];
 
@@ -746,7 +793,7 @@ export class DatabaseService {
 
   private async updatePlaylistStats(playlistId: string): Promise<void> {
     const stats = await this.getQuery(`
-      SELECT 
+      SELECT
         COUNT(*) as track_count,
         COALESCE(SUM(t.duration), 0) as total_duration
       FROM playlist_tracks pt
@@ -757,6 +804,164 @@ export class DatabaseService {
     await this.runQuery(
       'UPDATE playlists SET track_count = ?, duration = ?, updated_at = ? WHERE id = ?',
       [stats.track_count, stats.total_duration, new Date().toISOString(), playlistId]
+    );
+  }
+
+  // Audiobook methods
+  async createAudiobook(audiobookData: Omit<DatabaseAudiobook, 'id' | 'track_count' | 'duration' | 'created_at' | 'updated_at'>): Promise<DatabaseAudiobook> {
+    await this.ensureReady();
+
+    const now = new Date().toISOString();
+    const audiobook: DatabaseAudiobook = {
+      id: this.generateId(),
+      ...audiobookData,
+      track_count: 0,
+      duration: 0,
+      created_at: now,
+      updated_at: now
+    };
+
+    const sql = `
+      INSERT INTO audiobooks (id, title, author, description, track_count, duration, album_art_path, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    await this.runQuery(sql, [
+      audiobook.id, audiobook.title, audiobook.author, audiobook.description,
+      audiobook.track_count, audiobook.duration, audiobook.album_art_path,
+      audiobook.created_at, audiobook.updated_at
+    ]);
+
+    return audiobook;
+  }
+
+  async getAudiobooks(): Promise<DatabaseAudiobook[]> {
+    return await this.allQuery('SELECT * FROM audiobooks ORDER BY title ASC');
+  }
+
+  async getAudiobookWithTracks(audiobookId: string): Promise<{ audiobook: DatabaseAudiobook; tracks: DatabaseTrack[] } | null> {
+    const audiobook = await this.getQuery('SELECT * FROM audiobooks WHERE id = ?', [audiobookId]);
+    if (!audiobook) return null;
+
+    const tracks = await this.allQuery(`
+      SELECT t.* FROM tracks t
+      JOIN audiobook_tracks at ON t.id = at.track_id
+      WHERE at.audiobook_id = ?
+      ORDER BY at.position ASC
+    `, [audiobookId]);
+
+    return { audiobook, tracks };
+  }
+
+  async addTrackToAudiobook(audiobookId: string, trackId: string): Promise<boolean> {
+    try {
+      // Get next position
+      const positionResult = await this.getQuery(
+        'SELECT COALESCE(MAX(position), 0) + 1 as next_position FROM audiobook_tracks WHERE audiobook_id = ?',
+        [audiobookId]
+      );
+
+      // Add track to audiobook
+      await this.runQuery(`
+        INSERT INTO audiobook_tracks (id, audiobook_id, track_id, position, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `, [
+        this.generateId(),
+        audiobookId,
+        trackId,
+        positionResult.next_position,
+        new Date().toISOString()
+      ]);
+
+      // Update audiobook stats
+      await this.updateAudiobookStats(audiobookId);
+      return true;
+    } catch (error) {
+      console.error('Error adding track to audiobook:', error);
+      return false;
+    }
+  }
+
+  async removeTrackFromAudiobook(audiobookId: string, trackId: string): Promise<boolean> {
+    try {
+      const result = await this.runQuery(
+        'DELETE FROM audiobook_tracks WHERE audiobook_id = ? AND track_id = ?',
+        [audiobookId, trackId]
+      );
+
+      if (result.changes > 0) {
+        await this.updateAudiobookStats(audiobookId);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error removing track from audiobook:', error);
+      return false;
+    }
+  }
+
+  async reorderAudiobookTracks(audiobookId: string, trackIds: string[]): Promise<boolean> {
+    try {
+      await this.ensureReady();
+
+      // Update position for each track
+      for (let i = 0; i < trackIds.length; i++) {
+        await this.runQuery(
+          'UPDATE audiobook_tracks SET position = ? WHERE audiobook_id = ? AND track_id = ?',
+          [i, audiobookId, trackIds[i]]
+        );
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error reordering audiobook tracks:', error);
+      return false;
+    }
+  }
+
+  async updateAudiobook(id: string, updates: Partial<DatabaseAudiobook>): Promise<boolean> {
+    const updateFields = [];
+    const updateValues = [];
+
+    // Build dynamic update query
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined && key !== 'id' && key !== 'created_at') {
+        updateFields.push(`${key} = ?`);
+        updateValues.push(value);
+      }
+    }
+
+    if (updateFields.length === 0) return true; // No updates needed
+
+    // Add updated_at timestamp
+    updateFields.push('updated_at = ?');
+    updateValues.push(new Date().toISOString());
+    updateValues.push(id); // Add id for WHERE clause
+
+    const sql = `UPDATE audiobooks SET ${updateFields.join(', ')} WHERE id = ?`;
+
+    const result = await this.runQuery(sql, updateValues);
+    return result.changes > 0;
+  }
+
+  async deleteAudiobook(id: string): Promise<boolean> {
+    const result = await this.runQuery('DELETE FROM audiobooks WHERE id = ?', [id]);
+    return result.changes > 0;
+  }
+
+  private async updateAudiobookStats(audiobookId: string): Promise<void> {
+    const stats = await this.getQuery(`
+      SELECT
+        COUNT(*) as track_count,
+        COALESCE(SUM(t.duration), 0) as total_duration
+      FROM audiobook_tracks at
+      JOIN tracks t ON at.track_id = t.id
+      WHERE at.audiobook_id = ?
+    `, [audiobookId]);
+
+    await this.runQuery(
+      'UPDATE audiobooks SET track_count = ?, duration = ?, updated_at = ? WHERE id = ?',
+      [stats.track_count, stats.total_duration, new Date().toISOString(), audiobookId]
     );
   }
 
@@ -843,18 +1048,21 @@ export class DatabaseService {
     totalTracks: number;
     totalFolders: number;
     totalPlaylists: number;
+    totalAudiobooks: number;
     totalDuration: number;
   }> {
-    const [trackStats, folderCount, playlistCount] = await Promise.all([
+    const [trackStats, folderCount, playlistCount, audiobookCount] = await Promise.all([
       this.getQuery('SELECT COUNT(*) as count, COALESCE(SUM(duration), 0) as total_duration FROM tracks'),
       this.getQuery('SELECT COUNT(*) as count FROM folders'),
-      this.getQuery('SELECT COUNT(*) as count FROM playlists')
+      this.getQuery('SELECT COUNT(*) as count FROM playlists'),
+      this.getQuery('SELECT COUNT(*) as count FROM audiobooks')
     ]);
 
     return {
       totalTracks: trackStats.count,
       totalFolders: folderCount.count,
       totalPlaylists: playlistCount.count,
+      totalAudiobooks: audiobookCount.count,
       totalDuration: trackStats.total_duration
     };
   }
