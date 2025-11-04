@@ -293,9 +293,19 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
       if (response.ok) {
         const data = await response.json()
         if (data.tracks && data.tracks.length > 0) {
+          // Add audiobook cover art to each track for player display
+          const tracksWithCover = data.tracks.map((track: any) => ({
+            ...track,
+            coverArt: data.audiobook?.album_art_path
+              ? `/uploads/${data.audiobook.album_art_path}`
+              : track.thumbnail_path
+                ? `/uploads/${track.thumbnail_path}`
+                : undefined
+          }))
+
           // Play the first chapter and add remaining chapters to queue
           // Pass audiobook title as playlist name
-          onPlayPlaylist?.(data.tracks, data.audiobook?.title)
+          onPlayPlaylist?.(tracksWithCover, data.audiobook?.title)
         }
       }
     } catch (error) {

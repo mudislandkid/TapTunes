@@ -168,6 +168,9 @@ This applies to both audiobooks and regular playlists, providing consistent cont
 ### Deployment
 This change is included in the build and will be deployed with the hardware playback fix above.
 
+### Additional Fixes
+- **Cover Art Display**: Updated `handlePlayAudiobook` in `MediaLibrary.tsx` to attach the audiobook's cover art to each track before playback, ensuring the cover image displays correctly in the Now Playing view.
+
 ---
 
 ## Audiobook Cover Image Upload
