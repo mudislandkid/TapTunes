@@ -192,7 +192,7 @@ router.post('/play-track', async (req, res) => {
     }
 
     console.log(`📀 [AUDIO] Playing new track: "${track.title}" by ${track.artist}`);
-    console.log(`📁 [AUDIO] File path: ${track.filePath}`);
+    console.log(`📁 [AUDIO] File path: ${track.filePath || (track as any).file_path}`);
     console.log(`⏱️ [AUDIO] Track duration from database: ${track.duration} seconds`);
 
     // Reset shuffle state when playing a new single track
@@ -209,9 +209,9 @@ router.post('/play-track', async (req, res) => {
         artist: track.artist,
         album: track.album,
         duration: track.duration,
-        track_type: track.trackType,
-        file_path: track.filePath,
-        source_url: track.sourceUrl,
+        track_type: track.trackType || (track as any).track_type || 'file',
+        file_path: track.filePath || (track as any).file_path,
+        source_url: track.sourceUrl || (track as any).source_url,
         coverArt: track.coverArt
       }]
     };
@@ -273,9 +273,9 @@ router.post('/play-playlist', async (req, res) => {
         artist: track.artist,
         album: track.album,
         duration: track.duration,
-        track_type: track.trackType,
-        file_path: track.filePath,
-        source_url: track.sourceUrl,
+        track_type: track.trackType || track.track_type || 'file',
+        file_path: track.filePath || track.file_path,
+        source_url: track.sourceUrl || track.source_url,
         coverArt: track.coverArt
       }))
     };

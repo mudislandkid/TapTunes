@@ -65,3 +65,50 @@ Save, test (`sudo nginx -t`), and reload (`sudo systemctl reload nginx`).
 - Multer file upload limit: 500MB
 
 No backend changes are required.
+
+---
+
+## Audiobook Hardware Playback Fix
+
+**Date**: 2025-11-04
+
+### Issue
+Audiobooks would start playing in the UI but produced no hardware audio output on the Raspberry Pi. The error logs showed:
+```
+🔍 [AUDIO] Raw filePath received: undefined
+TypeError: Cannot read properties of undefined (reading 'length')
+```
+
+### Root Cause
+Database tracks return properties in snake_case format (`file_path`, `track_type`, `source_url`), but the audio playback code expected camelCase format (`filePath`, `trackType`, `sourceUrl`). This mismatch caused `undefined` values when mapping audiobook tracks to the playlist.
+
+### Solution
+Updated `/backend/src/routes/audio.ts` to handle both property naming conventions using fallback logic:
+```typescript
+file_path: track.filePath || track.file_path,
+track_type: track.trackType || track.track_type || 'file',
+source_url: track.sourceUrl || track.source_url
+```
+
+### Deployment Steps
+
+#### On your Raspberry Pi:
+
+1. **Pull latest code**:
+   ```bash
+   cd ~/taptunes
+   git pull origin main
+   ```
+
+2. **Rebuild backend**:
+   ```bash
+   cd backend
+   npm run build
+   ```
+
+3. **Restart backend service**:
+   ```bash
+   pm2 restart taptunes-backend
+   ```
+
+4. **Verify** by playing an audiobook - you should now hear audio output through the hardware.
