@@ -112,3 +112,36 @@ source_url: track.sourceUrl || track.source_url
    ```
 
 4. **Verify** by playing an audiobook - you should now hear audio output through the hardware.
+
+---
+
+## Audiobook Display Enhancement
+
+**Date**: 2025-11-04
+
+### Enhancement
+When playing an audiobook, the player now displays the audiobook title as the main heading with the chapter name underneath, similar to how playlists are displayed. This provides better context and makes it clear what audiobook is being played.
+
+### Changes Made
+
+**Backend** (`/backend/src/routes/audio.ts`):
+- Updated `/audio/play-playlist` endpoint to accept optional `playlistName` parameter
+- Playlist name is now used instead of hardcoded "Custom Playlist"
+
+**Frontend**:
+- Updated `handlePlayPlaylist` in `useAudioPlayer.ts` to accept optional `playlistName` parameter
+- Modified `MediaLibrary.tsx` to pass audiobook title when playing audiobooks
+- Modified `PlaylistView.tsx` to pass playlist name when playing playlists
+- Updated `NowPlaying.tsx` component to display:
+  - Playlist/audiobook name as main heading (when available)
+  - Track/chapter title as subtitle (when playlist name exists)
+  - Falls back to original display (track title, artist, album) for single tracks
+
+### User Experience
+- **Before**: "Chapter 1" / "Unknown Artist" / "Unknown Album"
+- **After**: "Audiobook Title" / "Chapter 1"
+
+This applies to both audiobooks and regular playlists, providing consistent context about what's currently playing.
+
+### Deployment
+This change is included in the build and will be deployed with the hardware playback fix above.

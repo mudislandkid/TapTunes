@@ -69,14 +69,20 @@ export const NowPlaying = memo(function NowPlaying({
                       <Music className="w-16 h-16 text-slate-200 mx-auto mb-4" />
                       <div className="space-y-2">
                         <h2 className="text-xl font-semibold text-slate-100">
-                          {playbackState.currentTrack.title}
+                          {playbackState.playlist?.name || playbackState.currentTrack.title}
                         </h2>
-                        {playbackState.currentTrack.artist && (
+                        {playbackState.playlist?.name ? (
                           <p className="text-slate-200">
-                            {playbackState.currentTrack.artist}
+                            {playbackState.currentTrack.title}
                           </p>
+                        ) : (
+                          playbackState.currentTrack.artist && (
+                            <p className="text-slate-200">
+                              {playbackState.currentTrack.artist}
+                            </p>
+                          )
                         )}
-                        {playbackState.currentTrack.album && (
+                        {!playbackState.playlist?.name && playbackState.currentTrack.album && (
                           <p className="text-sm text-slate-300">
                             {playbackState.currentTrack.album}
                           </p>
@@ -97,14 +103,20 @@ export const NowPlaying = memo(function NowPlaying({
               {playbackState.currentTrack && playbackState.currentTrack.coverArt && (
                 <div className="mt-4 text-center space-y-1">
                   <h2 className="text-xl font-semibold text-slate-100">
-                    {playbackState.currentTrack.title}
+                    {playbackState.playlist?.name || playbackState.currentTrack.title}
                   </h2>
-                  {playbackState.currentTrack.artist && (
+                  {playbackState.playlist?.name ? (
                     <p className="text-slate-200">
-                      {playbackState.currentTrack.artist}
+                      {playbackState.currentTrack.title}
                     </p>
+                  ) : (
+                    playbackState.currentTrack.artist && (
+                      <p className="text-slate-200">
+                        {playbackState.currentTrack.artist}
+                      </p>
+                    )
                   )}
-                  {playbackState.currentTrack.album && (
+                  {!playbackState.playlist?.name && playbackState.currentTrack.album && (
                     <p className="text-sm text-slate-300">
                       {playbackState.currentTrack.album}
                     </p>

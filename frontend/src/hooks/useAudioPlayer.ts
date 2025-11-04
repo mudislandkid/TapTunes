@@ -405,12 +405,12 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
     }
   }, [apiBase, playbackMode, audioEnhancementService, initializeAudioEnhancement])
 
-  const handlePlayPlaylist = useCallback(async (tracks: Track[]) => {
+  const handlePlayPlaylist = useCallback(async (tracks: Track[], playlistName?: string) => {
     try {
       await fetch(`${apiBase}/audio/play-playlist`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tracks })
+        body: JSON.stringify({ tracks, playlistName })
       })
       
       // If in browser mode and we have tracks, load the first track

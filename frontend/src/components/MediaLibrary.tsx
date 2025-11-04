@@ -294,7 +294,8 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
         const data = await response.json()
         if (data.tracks && data.tracks.length > 0) {
           // Play the first chapter and add remaining chapters to queue
-          onPlayPlaylist?.(data.tracks)
+          // Pass audiobook title as playlist name
+          onPlayPlaylist?.(data.tracks, data.audiobook?.title)
         }
       }
     } catch (error) {

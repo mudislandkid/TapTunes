@@ -68,5 +68,5 @@ export interface UploadProgress {
 export interface MediaLibraryProps {
   apiBase: string
   onPlayTrack?: (track: Track) => void
-  onPlayPlaylist?: (playlist: Track[]) => void
+  onPlayPlaylist?: (playlist: Track[], playlistName?: string) => void
 }

@@ -16,7 +16,7 @@ import {
 interface PlaylistViewProps {
   playlists: Playlist[]
   apiBase: string
-  onPlayPlaylist?: (playlist: Track[]) => void
+  onPlayPlaylist?: (playlist: Track[], playlistName?: string) => void
   onDeletePlaylist: (playlistId: string) => void
   onUpdate?: () => void
   formatDuration: (seconds: number) => string
@@ -44,7 +44,7 @@ export const PlaylistView = memo(function PlaylistView({
 
       // Play the playlist with tracks
       if (data.tracks && data.tracks.length > 0) {
-        onPlayPlaylist?.(data.tracks)
+        onPlayPlaylist?.(data.tracks, data.name)
       } else {
         console.warn('Playlist has no tracks')
       }

@@ -253,7 +253,7 @@ router.post('/play-track', async (req, res) => {
 // Play playlist
 router.post('/play-playlist', async (req, res) => {
   try {
-    const { tracks, startIndex = 0 } = req.body;
+    const { tracks, startIndex = 0, playlistName } = req.body;
 
     if (!tracks || !Array.isArray(tracks) || tracks.length === 0) {
       return res.status(400).json({ error: 'Tracks array is required' });
@@ -266,7 +266,7 @@ router.post('/play-playlist', async (req, res) => {
     // Create playlist from tracks
     currentPlaylist = {
       id: 'custom-playlist',
-      name: 'Custom Playlist',
+      name: playlistName || 'Custom Playlist',
       tracks: tracks.map((track: any) => ({
         id: track.id,
         title: track.title,
