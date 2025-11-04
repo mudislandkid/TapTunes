@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Timer, X, Plus, Play } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { fadeInUp } from '../../lib/animations'
 
 interface SleepTimerProps {
@@ -23,6 +24,7 @@ export const SleepTimer = memo(function SleepTimer({ apiBase }: SleepTimerProps)
   })
   const [isExpanded, setIsExpanded] = useState(false)
   const [selectedMinutes, setSelectedMinutes] = useState(30)
+  const [customMinutes, setCustomMinutes] = useState('')
 
   // Fetch timer state from backend
   const fetchTimerState = async () => {
@@ -52,15 +54,41 @@ export const SleepTimer = memo(function SleepTimer({ apiBase }: SleepTimerProps)
 
   const startTimer = async () => {
     try {
+      // Use custom minutes if entered, otherwise use selected preset
+      const minutes = customMinutes ? parseInt(customMinutes) : selectedMinutes
+
+      // Validate minutes
+      if (isNaN(minutes) || minutes < 1 || minutes > 180) {
+        console.error('Invalid minutes:', minutes)
+        return
+      }
+
+      // Load fade settings from localStorage
+      let fadeVolume = true
+      let fadeDuration = 10
+      try {
+        const savedSettings = localStorage.getItem('taptunes-settings')
+        if (savedSettings) {
+          const settings = JSON.parse(savedSettings)
+          fadeVolume = settings.fadeVolumeOnSleep ?? true
+          fadeDuration = settings.fadeVolumeDuration ?? 10
+        }
+      } catch (error) {
+        console.warn('Failed to load fade settings:', error)
+      }
+
+      console.log(`Starting timer: ${minutes}m, fade: ${fadeVolume}, duration: ${fadeDuration}s`)
+
       const response = await fetch(`${apiBase}/sleep-timer/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ minutes: selectedMinutes })
+        body: JSON.stringify({ minutes, fadeVolume, fadeDuration })
       })
       if (response.ok) {
         const data = await response.json()
         setTimerState(data)
         setIsExpanded(false)
+        setCustomMinutes('') // Clear custom input
       }
     } catch (error) {
       console.error('Failed to start sleep timer:', error)
@@ -232,10 +260,13 @@ export const SleepTimer = memo(function SleepTimer({ apiBase }: SleepTimerProps)
                     {[15, 30, 45, 60, 90, 120].map((mins) => (
                       <Button
                         key={mins}
-                        variant={selectedMinutes === mins ? 'default' : 'outline'}
+                        variant={selectedMinutes === mins && !customMinutes ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => setSelectedMinutes(mins)}
-                        className={selectedMinutes === mins
+                        onClick={() => {
+                          setSelectedMinutes(mins)
+                          setCustomMinutes('')
+                        }}
+                        className={selectedMinutes === mins && !customMinutes
                           ? 'bg-purple-600 hover:bg-purple-700'
                           : 'glass-card border-slate-600/50'
                         }
@@ -245,9 +276,24 @@ export const SleepTimer = memo(function SleepTimer({ apiBase }: SleepTimerProps)
                     ))}
                   </div>
 
+                  {/* Custom time input */}
+                  <div className="space-y-2">
+                    <label className="text-xs text-slate-400">Custom time (1-180 minutes)</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="180"
+                      value={customMinutes}
+                      onChange={(e) => setCustomMinutes(e.target.value)}
+                      placeholder="Enter minutes..."
+                      className="bg-slate-800/50 border-slate-600/50 text-slate-200 placeholder:text-slate-500"
+                    />
+                  </div>
+
                   <Button
                     onClick={startTimer}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                    disabled={!customMinutes && !selectedMinutes}
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50"
                   >
                     <Play className="w-4 h-4 mr-2" />
                     Start Timer
