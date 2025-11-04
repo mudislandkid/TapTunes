@@ -137,20 +137,58 @@ router.post('/play-track', async (req, res) => {
   try {
     const { trackId } = req.body;
     console.log(`🎵 [AUDIO] Play track request - ID: ${trackId}, Mode: ${playbackMode}`);
-    
+
     if (!trackId) {
       console.log(`❌ [AUDIO] No track ID provided`);
       return res.status(400).json({ error: 'Track ID is required' });
     }
 
-    // Get track from database
+    // Check if this track is already in the current playlist
+    if (currentPlaylist?.tracks) {
+      const trackIndexInPlaylist = currentPlaylist.tracks.findIndex(t => t.id === trackId);
+      if (trackIndexInPlaylist !== -1) {
+        // Track exists in current playlist - just jump to it
+        console.log(`🎯 [AUDIO] Track found in current playlist at index ${trackIndexInPlaylist} - jumping to it`);
+        currentTrackIndex = trackIndexInPlaylist;
+        currentTime = 0;
+        duration = currentPlaylist.tracks[currentTrackIndex]?.duration || 180;
+        isPlaying = true;
+        playbackStartTime = Date.now();
+
+        // Start hardware playback if in hardware mode
+        if (playbackMode === 'hardware') {
+          const playbackPath = getPlaybackPath(currentPlaylist.tracks[currentTrackIndex]);
+          console.log(`🔊 [AUDIO] Starting hardware playback for: ${playbackPath}`);
+          try {
+            await startHardwarePlayback(playbackPath, 0);
+            console.log(`✅ [AUDIO] Hardware playback started successfully`);
+          } catch (error) {
+            console.error(`❌ [AUDIO] Hardware playback failed:`, error);
+            throw error;
+          }
+        } else {
+          console.log(`🌐 [AUDIO] Browser playback mode - frontend should handle audio`);
+        }
+
+        console.log(`✅ [AUDIO] Jumped to track ${currentTrackIndex + 1}/${currentPlaylist.tracks.length} in playlist`);
+        res.json({
+          status: 'playing',
+          track: currentPlaylist.tracks[currentTrackIndex],
+          playbackMode,
+          trackIndex: currentTrackIndex
+        });
+        return;
+      }
+    }
+
+    // Track not in current playlist - get it from database and create single-track playlist
     const track = await mediaService.getTrackById(trackId);
     if (!track) {
       console.log(`❌ [AUDIO] Track not found: ${trackId}`);
       return res.status(404).json({ error: 'Track not found' });
     }
 
-    console.log(`📀 [AUDIO] Playing track: "${track.title}" by ${track.artist}`);
+    console.log(`📀 [AUDIO] Playing new track: "${track.title}" by ${track.artist}`);
     console.log(`📁 [AUDIO] File path: ${track.filePath}`);
     console.log(`⏱️ [AUDIO] Track duration from database: ${track.duration} seconds`);
 
@@ -193,10 +231,10 @@ router.post('/play-track', async (req, res) => {
     }
 
     console.log(`✅ [AUDIO] Track playing successfully in ${playbackMode} mode`);
-    res.json({ 
-      status: 'playing', 
+    res.json({
+      status: 'playing',
       track: currentPlaylist.tracks[0],
-      playbackMode 
+      playbackMode
     });
 
   } catch (error) {
