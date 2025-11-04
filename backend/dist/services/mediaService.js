@@ -65,6 +65,7 @@ class MediaService {
             parentId: dbFolder.parent_id,
             path: dbFolder.path,
             trackCount: dbFolder.track_count,
+            albumArtPath: dbFolder.album_art_path,
             createdAt: dbFolder.created_at,
             updatedAt: dbFolder.updated_at
         };
@@ -80,6 +81,7 @@ class MediaService {
             trackIds: [], // Will be populated separately when needed
             trackCount: dbPlaylist.track_count,
             duration: dbPlaylist.duration,
+            albumArtPath: dbPlaylist.album_art_path,
             createdAt: dbPlaylist.created_at,
             updatedAt: dbPlaylist.updated_at
         };
@@ -182,6 +184,15 @@ class MediaService {
         const dbFolders = await this.db.getFolders();
         return dbFolders.map(folder => this.convertDbFolder(folder));
     }
+    async updateFolder(id, updates) {
+        // Convert frontend updates to database format
+        const dbUpdates = {};
+        if (updates.name !== undefined)
+            dbUpdates.name = updates.name;
+        if (updates.albumArtPath !== undefined)
+            dbUpdates.album_art_path = updates.albumArtPath;
+        return await this.db.updateFolder(id, dbUpdates);
+    }
     async deleteFolder(id) {
         // Get all tracks in this folder to delete their files
         const tracks = await this.getTracks({ folderId: id });
@@ -238,6 +249,8 @@ class MediaService {
             dbUpdates.is_public = updates.isPublic;
         if (updates.tags !== undefined)
             dbUpdates.tags = updates.tags;
+        if (updates.albumArtPath !== undefined)
+            dbUpdates.album_art_path = updates.albumArtPath;
         return await this.db.updatePlaylist(id, dbUpdates);
     }
     async deletePlaylist(id) {

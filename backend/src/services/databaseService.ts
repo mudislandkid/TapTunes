@@ -30,6 +30,7 @@ export interface DatabaseFolder {
   parent_id?: string;
   path: string;
   track_count: number;
+  album_art_path?: string;
   created_at: string;
   updated_at: string;
 }
@@ -42,6 +43,7 @@ export interface DatabasePlaylist {
   tags: string; // JSON string
   track_count: number;
   duration: number;
+  album_art_path?: string;
   created_at: string;
   updated_at: string;
 }
@@ -242,7 +244,9 @@ export class DatabaseService {
       'ALTER TABLE tracks ADD COLUMN source_url TEXT',
       'ALTER TABLE rfid_cards ADD COLUMN card_id TEXT',
       'ALTER TABLE rfid_cards ADD COLUMN assignment_type TEXT',
-      'ALTER TABLE rfid_cards ADD COLUMN assignment_id TEXT'
+      'ALTER TABLE rfid_cards ADD COLUMN assignment_id TEXT',
+      'ALTER TABLE playlists ADD COLUMN album_art_path TEXT',
+      'ALTER TABLE folders ADD COLUMN album_art_path TEXT'
     ];
 
     for (const sql of migrations) {
@@ -552,10 +556,35 @@ export class DatabaseService {
     return await this.allQuery('SELECT * FROM folders ORDER BY name ASC');
   }
 
+  async updateFolder(id: string, updates: Partial<DatabaseFolder>): Promise<boolean> {
+    const updateFields = [];
+    const updateValues = [];
+
+    // Build dynamic update query
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined && key !== 'id' && key !== 'created_at') {
+        updateFields.push(`${key} = ?`);
+        updateValues.push(value);
+      }
+    }
+
+    if (updateFields.length === 0) return true; // No updates needed
+
+    // Add updated_at timestamp
+    updateFields.push('updated_at = ?');
+    updateValues.push(new Date().toISOString());
+    updateValues.push(id); // Add id for WHERE clause
+
+    const sql = `UPDATE folders SET ${updateFields.join(', ')} WHERE id = ?`;
+
+    const result = await this.runQuery(sql, updateValues);
+    return result.changes > 0;
+  }
+
   async deleteFolder(id: string): Promise<boolean> {
     // First delete all tracks in this folder
     await this.runQuery('DELETE FROM tracks WHERE folder_id = ?', [id]);
-    
+
     // Then delete the folder
     const result = await this.runQuery('DELETE FROM folders WHERE id = ?', [id]);
     return result.changes > 0;

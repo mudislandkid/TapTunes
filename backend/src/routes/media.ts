@@ -1180,6 +1180,71 @@ router.get('/folders', async (req, res) => {
   }
 });
 
+// Update folder
+router.put('/folders/:id', async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    const success = await mediaService.updateFolder(req.params.id, { name });
+
+    if (!success) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    res.json({ message: 'Folder updated successfully' });
+  } catch (error) {
+    console.error('Error updating folder:', error);
+    res.status(500).json({ error: 'Failed to update folder' });
+  }
+});
+
+// Get available album art from tracks in a folder
+router.get('/folders/:id/available-art', async (req, res) => {
+  try {
+    const tracks = await mediaService.getTracks({ folderId: req.params.id });
+
+    // Get unique album art paths from tracks
+    const albumArtOptions = tracks
+      .filter(track => track.thumbnailPath || track.coverArt)
+      .map(track => ({
+        trackId: track.id,
+        trackTitle: track.title,
+        trackArtist: track.artist,
+        artPath: track.thumbnailPath,
+        artUrl: track.coverArt
+      }))
+      // Remove duplicates based on artPath
+      .filter((option, index, self) =>
+        index === self.findIndex(o => o.artPath === option.artPath)
+      );
+
+    res.json({ albumArtOptions });
+  } catch (error) {
+    console.error('Error fetching available album art:', error);
+    res.status(500).json({ error: 'Failed to fetch available album art' });
+  }
+});
+
+// Set folder album art
+router.put('/folders/:id/album-art', async (req, res) => {
+  try {
+    const { albumArtPath } = req.body;
+
+    const success = await mediaService.updateFolder(req.params.id, {
+      albumArtPath
+    });
+
+    if (!success) {
+      return res.status(404).json({ error: 'Folder not found' });
+    }
+
+    res.json({ message: 'Folder album art updated successfully' });
+  } catch (error) {
+    console.error('Error updating folder album art:', error);
+    res.status(500).json({ error: 'Failed to update folder album art' });
+  }
+});
+
 // Delete folder
 router.delete('/folders/:id', async (req, res) => {
   try {
@@ -1311,25 +1376,75 @@ router.get('/playlists/:id', async (req, res) => {
   }
 });
 
+// Get available album art from tracks in a playlist
+router.get('/playlists/:id/available-art', async (req, res) => {
+  try {
+    const playlistData = await mediaService.getPlaylistWithTracks(req.params.id);
+    if (!playlistData) {
+      return res.status(404).json({ error: 'Playlist not found' });
+    }
+
+    // Get unique album art paths from tracks
+    const albumArtOptions = playlistData.tracks
+      .filter(track => track.thumbnailPath || track.coverArt)
+      .map(track => ({
+        trackId: track.id,
+        trackTitle: track.title,
+        trackArtist: track.artist,
+        artPath: track.thumbnailPath,
+        artUrl: track.coverArt
+      }))
+      // Remove duplicates based on artPath
+      .filter((option, index, self) =>
+        index === self.findIndex(o => o.artPath === option.artPath)
+      );
+
+    res.json({ albumArtOptions });
+  } catch (error) {
+    console.error('Error fetching available album art:', error);
+    res.status(500).json({ error: 'Failed to fetch available album art' });
+  }
+});
+
+// Set playlist album art
+router.put('/playlists/:id/album-art', async (req, res) => {
+  try {
+    const { albumArtPath } = req.body;
+
+    const success = await mediaService.updatePlaylist(req.params.id, {
+      albumArtPath
+    });
+
+    if (!success) {
+      return res.status(404).json({ error: 'Playlist not found' });
+    }
+
+    res.json({ message: 'Playlist album art updated successfully' });
+  } catch (error) {
+    console.error('Error updating playlist album art:', error);
+    res.status(500).json({ error: 'Failed to update playlist album art' });
+  }
+});
+
 // Update playlist
 router.put('/playlists/:id', async (req, res) => {
   try {
     const { name, description, isPublic, tags } = req.body;
-    
+
     // Convert tags array back to JSON string for storage
     const tagString = Array.isArray(tags) ? JSON.stringify(tags) : tags;
-    
+
     const success = await mediaService.updatePlaylist(req.params.id, {
       name,
-      description, 
+      description,
       isPublic,
       tags: tagString
     });
-    
+
     if (!success) {
       return res.status(404).json({ error: 'Playlist not found' });
     }
-    
+
     res.json({ message: 'Playlist updated successfully' });
   } catch (error) {
     console.error('Error updating playlist:', error);

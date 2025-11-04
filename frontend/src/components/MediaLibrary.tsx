@@ -860,6 +860,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                   apiBase={apiBase}
                   onFolderChange={setCurrentFolder}
                   onDeleteFolder={deleteFolder}
+                  onUpdate={fetchLibraryData}
                   filteredTracks={filteredTracks}
                   onPlayTrack={handlePlayTrack}
                   formatDuration={formatDuration}

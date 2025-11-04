@@ -162,7 +162,9 @@ class DatabaseService {
             'ALTER TABLE tracks ADD COLUMN source_url TEXT',
             'ALTER TABLE rfid_cards ADD COLUMN card_id TEXT',
             'ALTER TABLE rfid_cards ADD COLUMN assignment_type TEXT',
-            'ALTER TABLE rfid_cards ADD COLUMN assignment_id TEXT'
+            'ALTER TABLE rfid_cards ADD COLUMN assignment_id TEXT',
+            'ALTER TABLE playlists ADD COLUMN album_art_path TEXT',
+            'ALTER TABLE folders ADD COLUMN album_art_path TEXT'
         ];
         for (const sql of migrations) {
             try {
@@ -418,6 +420,26 @@ class DatabaseService {
     }
     async getFolders() {
         return await this.allQuery('SELECT * FROM folders ORDER BY name ASC');
+    }
+    async updateFolder(id, updates) {
+        const updateFields = [];
+        const updateValues = [];
+        // Build dynamic update query
+        for (const [key, value] of Object.entries(updates)) {
+            if (value !== undefined && key !== 'id' && key !== 'created_at') {
+                updateFields.push(`${key} = ?`);
+                updateValues.push(value);
+            }
+        }
+        if (updateFields.length === 0)
+            return true; // No updates needed
+        // Add updated_at timestamp
+        updateFields.push('updated_at = ?');
+        updateValues.push(new Date().toISOString());
+        updateValues.push(id); // Add id for WHERE clause
+        const sql = `UPDATE folders SET ${updateFields.join(', ')} WHERE id = ?`;
+        const result = await this.runQuery(sql, updateValues);
+        return result.changes > 0;
     }
     async deleteFolder(id) {
         // First delete all tracks in this folder

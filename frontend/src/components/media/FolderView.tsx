@@ -1,9 +1,10 @@
-import { memo } from 'react'
+import { memo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Home, ChevronRight, Folder, Trash2 } from 'lucide-react'
+import { Home, ChevronRight, Folder, Trash2, Edit3 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+import { FolderDetailDialog } from './FolderDetailDialog'
 import type { Folder as FolderType, Track } from '../../types/media'
 import { TrackListView } from './TrackListView'
 import {
@@ -19,6 +20,7 @@ interface FolderViewProps {
   apiBase: string
   onFolderChange: (folderId: string | null) => void
   onDeleteFolder: (folderId: string) => void
+  onUpdate?: () => void
   filteredTracks: Track[]
   onPlayTrack: (track: Track) => void
   formatDuration: (seconds: number) => string
@@ -30,11 +32,31 @@ export const FolderView = memo(function FolderView({
   apiBase,
   onFolderChange,
   onDeleteFolder,
+  onUpdate,
   filteredTracks,
   onPlayTrack,
   formatDuration
 }: FolderViewProps) {
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+
+  const handleEditFolder = (e: React.MouseEvent, folderId: string) => {
+    e.stopPropagation()
+    setSelectedFolderId(folderId)
+    setDetailDialogOpen(true)
+  }
+
+  const handleDetailDialogClose = () => {
+    setDetailDialogOpen(false)
+    setSelectedFolderId(null)
+  }
+
+  const handleFolderUpdate = () => {
+    onUpdate?.()
+  }
+
   return (
+    <>
     <motion.div 
       className="space-y-4"
       variants={staggerContainer}
@@ -93,12 +115,20 @@ export const FolderView = memo(function FolderView({
                 
                 <h3 className="font-semibold text-slate-100 text-sm truncate mb-1">{folder.name}</h3>
                 <p className="text-xs text-slate-400">{folder.trackCount} tracks</p>
-                
+
                 <motion.div
-                  className="opacity-0 group-hover:opacity-100 transition-opacity mt-2"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity mt-2 flex gap-1 justify-center"
                   initial={{ opacity: 0 }}
                   whileHover={{ opacity: 1 }}
                 >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-slate-400 hover:text-slate-300"
+                    onClick={(e) => handleEditFolder(e, folder.id)}
+                  >
+                    <Edit3 className="w-3 h-3" />
+                  </Button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button
@@ -148,5 +178,14 @@ export const FolderView = memo(function FolderView({
         </motion.div>
       )}
     </motion.div>
+
+    <FolderDetailDialog
+      folderId={selectedFolderId}
+      apiBase={apiBase}
+      open={detailDialogOpen}
+      onOpenChange={handleDetailDialogClose}
+      onUpdate={handleFolderUpdate}
+    />
+    </>
   )
 })

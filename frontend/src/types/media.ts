@@ -39,6 +39,7 @@ export interface Folder {
   parentId?: string
   path: string
   trackCount: number
+  albumArtPath?: string
   subfolders: Folder[]
   createdAt: string
 }
@@ -50,6 +51,7 @@ export interface Playlist {
   trackCount: number
   duration: number
   coverArt?: string
+  albumArtPath?: string
   tracks: Track[]
   createdAt: string
   isPublic: boolean

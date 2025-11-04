@@ -258,7 +258,7 @@ router.post('/play-playlist', async (req, res) => {
     }
 });
 router.post('/play', async (req, res) => {
-    const { playlistId, trackIndex } = req.body;
+    const { playlistId, trackIndex } = req.body || {};
     isPlaying = true;
     playbackStartTime = Date.now();
     if (trackIndex !== undefined) {

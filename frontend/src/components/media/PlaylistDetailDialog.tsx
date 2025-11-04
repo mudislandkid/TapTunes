@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Reorder } from 'framer-motion'
-import { GripVertical, Trash2, Plus, Music } from 'lucide-react'
+import { GripVertical, Trash2, Plus, Music, Image as ImageIcon, Check, X } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { GlassCard } from "@/components/ui/card"
+import { AlbumArtPicker } from './AlbumArtPicker'
 import type { Track } from '../../types/media'
 
 interface PlaylistDetailDialogProps {
@@ -36,6 +37,9 @@ export function PlaylistDetailDialog({
   const [isSearching, setIsSearching] = useState(false)
   const [tracks, setTracks] = useState<Track[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [editedName, setEditedName] = useState('')
+  const [albumArtPickerOpen, setAlbumArtPickerOpen] = useState(false)
 
   // Fetch playlist details
   useEffect(() => {
@@ -152,6 +156,44 @@ export function PlaylistDetailDialog({
     }
   }
 
+  const handleStartEditName = () => {
+    setEditedName(playlist?.name || '')
+    setIsEditingName(true)
+  }
+
+  const handleCancelEditName = () => {
+    setIsEditingName(false)
+    setEditedName('')
+  }
+
+  const handleSaveName = async () => {
+    if (!playlistId || !editedName.trim() || editedName === playlist?.name) {
+      setIsEditingName(false)
+      return
+    }
+
+    try {
+      const response = await fetch(`${apiBase}/media/playlists/${playlistId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editedName.trim() })
+      })
+
+      if (response.ok) {
+        setPlaylist(prev => prev ? { ...prev, name: editedName.trim() } : null)
+        setIsEditingName(false)
+        onUpdate?.()
+      }
+    } catch (error) {
+      console.error('Error updating playlist name:', error)
+    }
+  }
+
+  const handleAlbumArtSelected = () => {
+    fetchPlaylist()
+    onUpdate?.()
+  }
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -159,16 +201,75 @@ export function PlaylistDetailDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card border-slate-700/50 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="text-slate-100 text-xl">
-            {playlist?.name || 'Playlist'}
-          </DialogTitle>
-          {playlist?.description && (
-            <p className="text-sm text-slate-300 mt-1">{playlist.description}</p>
-          )}
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="glass-card border-slate-700/50 max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                {isEditingName ? (
+                  <div className="flex items-center gap-2 flex-1">
+                    <Input
+                      value={editedName}
+                      onChange={(e) => setEditedName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveName()
+                        if (e.key === 'Escape') handleCancelEditName()
+                      }}
+                      className="glass-card border-slate-600/50 text-slate-100"
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleSaveName}
+                      className="h-8 w-8 p-0 text-green-400 hover:text-green-300"
+                    >
+                      <Check className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleCancelEditName}
+                      className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <DialogTitle className="text-slate-100 text-xl">
+                      {playlist?.name || 'Playlist'}
+                    </DialogTitle>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={handleStartEditName}
+                      className="h-8 w-8 p-0 text-slate-400 hover:text-slate-300"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAlbumArtPickerOpen(true)}
+                  className="glass-card border-slate-600/50 text-sm"
+                >
+                  <ImageIcon className="w-3 h-3 mr-1" />
+                  Change Album Art
+                </Button>
+              </div>
+
+              {playlist?.description && (
+                <p className="text-sm text-slate-300">{playlist.description}</p>
+              )}
+            </div>
+          </DialogHeader>
 
         {error && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-2">
@@ -298,5 +399,15 @@ export function PlaylistDetailDialog({
         )}
       </DialogContent>
     </Dialog>
+
+    <AlbumArtPicker
+      type="playlist"
+      id={playlistId || ''}
+      apiBase={apiBase}
+      open={albumArtPickerOpen}
+      onOpenChange={setAlbumArtPickerOpen}
+      onSelect={handleAlbumArtSelected}
+    />
+  </>
   )
 }
