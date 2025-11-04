@@ -12,6 +12,7 @@ const rfid_1 = __importDefault(require("./routes/rfid"));
 const media_1 = __importDefault(require("./routes/media"));
 const system_1 = __importDefault(require("./routes/system"));
 const settings_1 = __importDefault(require("./routes/settings"));
+const sleepTimer_1 = __importDefault(require("./routes/sleepTimer"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -28,6 +29,7 @@ app.use('/api/rfid', rfid_1.default);
 app.use('/api/media', media_1.default);
 app.use('/api/system', system_1.default);
 app.use('/api/settings', settings_1.default);
+app.use('/api/sleep-timer', sleepTimer_1.default);
 const HOST = process.env.HOST || '0.0.0.0';
 app.listen(PORT, HOST, () => {
     console.log(`🎵 TapTunes Server running on ${HOST}:${PORT}`);
