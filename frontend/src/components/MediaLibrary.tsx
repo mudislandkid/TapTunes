@@ -580,7 +580,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
         <motion.div variants={fadeInUp} transition={{ delay: 0.1 }}>
           <GlassCard className="p-2">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="grid w-full grid-cols-6 glass-card">
+              <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 glass-card">
                 <TabsTrigger value="tracks">Tracks</TabsTrigger>
                 <TabsTrigger value="folders">Folders</TabsTrigger>
                 <TabsTrigger value="playlists">Playlists</TabsTrigger>
