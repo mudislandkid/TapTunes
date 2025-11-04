@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import { Book, Play, Clock, Edit3, Check, X } from 'lucide-react';
+import { Book, Play, Clock, Edit3, Check, X, Sparkles } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
+import { AudiobookMetadataDialog } from './AudiobookMetadataDialog';
 
 interface Track {
   id: string;
@@ -42,6 +43,7 @@ export default function AudiobookDetailDialog({
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isMetadataDialogOpen, setIsMetadataDialogOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [editedAuthor, setEditedAuthor] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
@@ -206,14 +208,25 @@ export default function AudiobookDetailDialog({
             </div>
 
             {!isEditing && (
-              <DialogDescription className="text-sm text-gray-400 flex items-center gap-4">
-                <span>{audiobook?.track_count} chapters</span>
-                <span>·</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  {audiobook && formatDuration(audiobook.duration)}
-                </span>
-              </DialogDescription>
+              <div className="flex items-center justify-between gap-4">
+                <DialogDescription className="text-sm text-gray-400 flex items-center gap-4">
+                  <span>{audiobook?.track_count} chapters</span>
+                  <span>·</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    {audiobook && formatDuration(audiobook.duration)}
+                  </span>
+                </DialogDescription>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsMetadataDialogOpen(true)}
+                  className="h-7 text-xs border-purple-600/50 text-purple-400 hover:text-purple-300 hover:bg-purple-900/20"
+                >
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Enhance Metadata
+                </Button>
+              </div>
             )}
           </div>
         </DialogHeader>
@@ -279,6 +292,20 @@ export default function AudiobookDetailDialog({
           </Button>
         </div>
       </DialogContent>
+
+      {/* Metadata Enhancement Dialog */}
+      {audiobookId && (
+        <AudiobookMetadataDialog
+          audiobookId={audiobookId}
+          apiBase={apiBase}
+          open={isMetadataDialogOpen}
+          onOpenChange={setIsMetadataDialogOpen}
+          onMetadataApplied={() => {
+            fetchAudiobookDetails();
+            onUpdate?.();
+          }}
+        />
+      )}
     </Dialog>
   );
 }

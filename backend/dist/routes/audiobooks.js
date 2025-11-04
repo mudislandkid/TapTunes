@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -135,6 +168,71 @@ router.put('/:id/reorder', async (req, res) => {
     catch (error) {
         console.error('Error reordering audiobook tracks:', error);
         res.status(500).json({ error: 'Failed to reorder tracks' });
+    }
+});
+// Search for audiobook metadata
+router.post('/:id/search-metadata', async (req, res) => {
+    try {
+        const { id } = req.params;
+        // Get audiobook to use its title and author for search
+        const audiobookData = await dbService.getAudiobookWithTracks(id);
+        if (!audiobookData) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+        const { audiobook } = audiobookData;
+        // Import metadata service dynamically
+        const { MetadataService } = await Promise.resolve().then(() => __importStar(require('../services/metadataService')));
+        const metadataService = new MetadataService();
+        console.log(`📚 [AUDIOBOOK] Searching metadata for: "${audiobook.title}" by ${audiobook.author}`);
+        // Search using title as query (audiobooks are often listed by title)
+        const results = await metadataService.lookupTrackMetadata(audiobook.author, audiobook.title, '' // no album for audiobooks
+        );
+        res.json({ results });
+    }
+    catch (error) {
+        console.error('Error searching audiobook metadata:', error);
+        res.status(500).json({
+            error: 'Failed to search metadata',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+// Apply metadata to audiobook (mainly for album art)
+router.post('/:id/apply-metadata', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, author, description, musicBrainzId } = req.body;
+        console.log(`📚 [AUDIOBOOK] Applying metadata to audiobook: ${id}`);
+        let albumArtPath;
+        // Download album art if musicBrainzId provided
+        if (musicBrainzId) {
+            const { MetadataService } = await Promise.resolve().then(() => __importStar(require('../services/metadataService')));
+            const metadataService = new MetadataService();
+            albumArtPath = await metadataService.downloadAlbumArt(musicBrainzId, id);
+            console.log(`🎨 [AUDIOBOOK] Album art downloaded: ${albumArtPath}`);
+        }
+        // Update audiobook with new metadata
+        const updates = {};
+        if (title)
+            updates.title = title;
+        if (author)
+            updates.author = author;
+        if (description)
+            updates.description = description;
+        if (albumArtPath)
+            updates.album_art_path = albumArtPath;
+        const success = await dbService.updateAudiobook(id, updates);
+        if (!success) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+        res.json({ success: true, albumArtPath });
+    }
+    catch (error) {
+        console.error('Error applying audiobook metadata:', error);
+        res.status(500).json({
+            error: 'Failed to apply metadata',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 });
 exports.default = router;

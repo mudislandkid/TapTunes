@@ -154,4 +154,82 @@ router.put('/:id/reorder', async (req, res) => {
   }
 });
 
+// Search for audiobook metadata
+router.post('/:id/search-metadata', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get audiobook to use its title and author for search
+    const audiobookData = await dbService.getAudiobookWithTracks(id);
+    if (!audiobookData) {
+      return res.status(404).json({ error: 'Audiobook not found' });
+    }
+
+    const { audiobook } = audiobookData;
+
+    // Import metadata service dynamically
+    const { MetadataService } = await import('../services/metadataService');
+    const metadataService = new MetadataService();
+
+    console.log(`📚 [AUDIOBOOK] Searching metadata for: "${audiobook.title}" by ${audiobook.author}`);
+
+    // Search using title as query (audiobooks are often listed by title)
+    const results = await metadataService.lookupTrackMetadata(
+      audiobook.author,
+      audiobook.title,
+      '' // no album for audiobooks
+    );
+
+    res.json({ results });
+  } catch (error) {
+    console.error('Error searching audiobook metadata:', error);
+    res.status(500).json({
+      error: 'Failed to search metadata',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Apply metadata to audiobook (mainly for album art)
+router.post('/:id/apply-metadata', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, author, description, musicBrainzId } = req.body;
+
+    console.log(`📚 [AUDIOBOOK] Applying metadata to audiobook: ${id}`);
+
+    let albumArtPath: string | undefined;
+
+    // Download album art if musicBrainzId provided
+    if (musicBrainzId) {
+      const { MetadataService } = await import('../services/metadataService');
+      const metadataService = new MetadataService();
+
+      albumArtPath = await metadataService.downloadAlbumArt(musicBrainzId, id);
+      console.log(`🎨 [AUDIOBOOK] Album art downloaded: ${albumArtPath}`);
+    }
+
+    // Update audiobook with new metadata
+    const updates: any = {};
+    if (title) updates.title = title;
+    if (author) updates.author = author;
+    if (description) updates.description = description;
+    if (albumArtPath) updates.album_art_path = albumArtPath;
+
+    const success = await dbService.updateAudiobook(id, updates);
+
+    if (!success) {
+      return res.status(404).json({ error: 'Audiobook not found' });
+    }
+
+    res.json({ success: true, albumArtPath });
+  } catch (error) {
+    console.error('Error applying audiobook metadata:', error);
+    res.status(500).json({
+      error: 'Failed to apply metadata',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 export default router;
