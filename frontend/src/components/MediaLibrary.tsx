@@ -1,6 +1,6 @@
 import { useState, useEffect, memo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Music, Shuffle, Play, FolderPlus, Plus, Radio } from 'lucide-react'
+import { Music, Shuffle, Play, FolderPlus, Plus, Radio, Book } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -10,9 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { 
-  pageVariants, 
-  staggerContainer, 
+import {
+  pageVariants,
+  staggerContainer,
   fadeInUp
 } from '../lib/animations'
 
@@ -22,25 +22,28 @@ import { MediaUpload } from './media/MediaUpload'
 import { TrackListView } from './media/TrackListView'
 import { FolderView } from './media/FolderView'
 import { PlaylistView } from './media/PlaylistView'
+import { AudiobookView } from './media/AudiobookView'
+import AudiobookUploadDialog from './media/AudiobookUploadDialog'
 import { MetadataSelectionDialog } from './media/MetadataSelectionDialog'
 
 // Import types
 import type { Track, Folder, Playlist, MediaLibraryProps } from '../types/media'
 
 const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPlaylist }: MediaLibraryProps) {
-  const [activeTab, setActiveTab] = useState<'tracks' | 'albums' | 'artists' | 'playlists' | 'folders'>('tracks')
+  const [activeTab, setActiveTab] = useState<'tracks' | 'albums' | 'artists' | 'playlists' | 'folders' | 'audiobooks'>('tracks')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('title')
   const [filterGenre, setFilterGenre] = useState('all')
-  
+
   const [tracks, setTracks] = useState<Track[]>([])
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
+  const [audiobooks, setAudiobooks] = useState<any[]>([])
   const [currentFolder, setCurrentFolder] = useState<string | null>(null)
   const [genres, setGenres] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  
+
   // Dialog states
   const [isCreateFolderDialogOpen, setIsCreateFolderDialogOpen] = useState(false)
   const [isCreatePlaylistDialogOpen, setIsCreatePlaylistDialogOpen] = useState(false)
@@ -51,6 +54,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   const [isDeleteTrackDialogOpen, setIsDeleteTrackDialogOpen] = useState(false)
   const [isMetadataDialogOpen, setIsMetadataDialogOpen] = useState(false)
   const [isAddRadioStreamDialogOpen, setIsAddRadioStreamDialogOpen] = useState(false)
+  const [isUploadAudiobookDialogOpen, setIsUploadAudiobookDialogOpen] = useState(false)
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -82,12 +86,13 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   // Fetch library data from API
   const fetchLibraryData = async () => {
     setLoading(true)
-    
+
     try {
-      const [tracksResponse, foldersResponse, playlistsResponse] = await Promise.all([
+      const [tracksResponse, foldersResponse, playlistsResponse, audiobooksResponse] = await Promise.all([
         fetch(`${apiBase}/media/tracks`),
         fetch(`${apiBase}/media/folders`),
-        fetch(`${apiBase}/media/playlists`)
+        fetch(`${apiBase}/media/playlists`),
+        fetch(`${apiBase}/audiobooks`)
       ])
 
       if (tracksResponse.ok) {
@@ -119,6 +124,11 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
           tracks: [] // We'll load tracks separately when needed
         })) || []
         setPlaylists(formattedPlaylists)
+      }
+
+      if (audiobooksResponse.ok) {
+        const audiobooksData = await audiobooksResponse.json()
+        setAudiobooks(audiobooksData || [])
       }
 
     } catch (error) {
@@ -258,6 +268,37 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
       }
     } catch (error) {
       console.error('Error deleting folder:', error)
+    }
+  }
+
+  const deleteAudiobook = async (audiobookId: string) => {
+    try {
+      const response = await fetch(`${apiBase}/audiobooks/${audiobookId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        fetchLibraryData() // Refresh data
+      } else {
+        console.error('Failed to delete audiobook')
+      }
+    } catch (error) {
+      console.error('Error deleting audiobook:', error)
+    }
+  }
+
+  const handlePlayAudiobook = async (audiobookId: string) => {
+    try {
+      const response = await fetch(`${apiBase}/audiobooks/${audiobookId}`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.tracks && data.tracks.length > 0) {
+          // Play the first chapter and add remaining chapters to queue
+          onPlayPlaylist?.(data.tracks)
+        }
+      }
+    } catch (error) {
+      console.error('Error playing audiobook:', error)
     }
   }
 
@@ -539,10 +580,11 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
         <motion.div variants={fadeInUp} transition={{ delay: 0.1 }}>
           <GlassCard className="p-2">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="grid w-full grid-cols-5 glass-card">
+              <TabsList className="grid w-full grid-cols-6 glass-card">
                 <TabsTrigger value="tracks">Tracks</TabsTrigger>
                 <TabsTrigger value="folders">Folders</TabsTrigger>
                 <TabsTrigger value="playlists">Playlists</TabsTrigger>
+                <TabsTrigger value="audiobooks">Audiobooks</TabsTrigger>
                 <TabsTrigger value="albums">Albums</TabsTrigger>
                 <TabsTrigger value="artists">Artists</TabsTrigger>
               </TabsList>
@@ -803,6 +845,17 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
               </DialogContent>
             </Dialog>
           )}
+
+          {activeTab === 'audiobooks' && (
+            <Button
+              variant="outline"
+              className="glass-card border-slate-600/50"
+              onClick={() => setIsUploadAudiobookDialogOpen(true)}
+            >
+              <Book className="w-4 h-4 mr-2" />
+              Upload Audiobook
+            </Button>
+          )}
         </motion.div>
       </motion.div>
 
@@ -874,6 +927,17 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                   onPlayPlaylist={onPlayPlaylist}
                   onDeletePlaylist={deletePlaylist}
                   onUpdate={fetchLibraryData}
+                  formatDuration={formatDuration}
+                />
+              )}
+
+              {activeTab === 'audiobooks' && (
+                <AudiobookView
+                  audiobooks={audiobooks}
+                  apiBase={apiBase}
+                  onDeleteAudiobook={deleteAudiobook}
+                  onUpdate={fetchLibraryData}
+                  onPlayAudiobook={handlePlayAudiobook}
                   formatDuration={formatDuration}
                 />
               )}
@@ -1177,6 +1241,13 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
         track={selectedTrack}
         apiBase={apiBase}
         onMetadataApplied={fetchLibraryData}
+      />
+
+      {/* Audiobook Upload Dialog */}
+      <AudiobookUploadDialog
+        isOpen={isUploadAudiobookDialogOpen}
+        onClose={() => setIsUploadAudiobookDialogOpen(false)}
+        onSuccess={fetchLibraryData}
       />
     </motion.div>
   )
