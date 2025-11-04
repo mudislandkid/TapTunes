@@ -78,12 +78,12 @@ function App() {
       >
         {activeTab === 'player' && (
           <motion.div
-            className="flex flex-col-reverse lg:grid lg:grid-cols-3 gap-6"
+            className="flex flex-col lg:grid lg:grid-cols-3 gap-6"
             variants={staggerContainer}
             initial="initial"
             animate="animate"
           >
-            {/* Now Playing - appears at bottom on mobile, left on desktop */}
+            {/* Now Playing - appears at top on mobile, left on desktop */}
             <div className="lg:col-span-2">
               <NowPlaying
                 playbackState={playbackState}
@@ -105,7 +105,7 @@ function App() {
               />
             </div>
 
-            {/* Sidebar - appears at top on mobile, right on desktop */}
+            {/* Sidebar - appears after NowPlaying on mobile, right on desktop */}
             <div className="lg:col-span-1">
               <PlayerControls
                 playbackMode={playbackMode}
