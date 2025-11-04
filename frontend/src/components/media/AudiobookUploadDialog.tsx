@@ -66,7 +66,7 @@ export default function AudiobookUploadDialog({ isOpen, onClose, onSuccess }: Au
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         const formData = new FormData();
-        formData.append('file', file);
+        formData.append('files', file);
 
         // Upload the track
         const uploadResponse = await fetch('/api/media/upload', {
@@ -78,7 +78,14 @@ export default function AudiobookUploadDialog({ isOpen, onClose, onSuccess }: Au
           throw new Error(`Failed to upload ${file.name}`);
         }
 
-        const track = await uploadResponse.json();
+        const uploadResult = await uploadResponse.json();
+
+        // Extract track from results array
+        if (!uploadResult.results || !uploadResult.results[0] || !uploadResult.results[0].success) {
+          throw new Error(`Failed to process ${file.name}`);
+        }
+
+        const track = uploadResult.results[0].track;
 
         // Add track to audiobook
         await fetch(`/api/audiobooks/${audiobook.id}/tracks`, {
