@@ -20,7 +20,6 @@ interface AppSettings {
   autoStartOnBoot: boolean;
   enableLogging: boolean;
   logLevel: 'error' | 'warn' | 'info' | 'debug';
-  enableTelemetry: boolean;
   wifiSSID: string;
   enableHotspot: boolean;
   hotspotName: string;
@@ -54,7 +53,6 @@ const defaultSettings: AppSettings = {
   autoStartOnBoot: true,
   enableLogging: true,
   logLevel: 'info',
-  enableTelemetry: false,
   wifiSSID: '',
   enableHotspot: false,
   hotspotName: 'TapTunes-RPi',

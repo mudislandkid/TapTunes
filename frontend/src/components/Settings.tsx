@@ -61,8 +61,7 @@ interface AppSettings {
   autoStartOnBoot: boolean;
   enableLogging: boolean;
   logLevel: 'error' | 'warn' | 'info' | 'debug';
-  enableTelemetry: boolean;
-  
+
   // Network Settings (RPi)
   wifiSSID: string;
   enableHotspot: boolean;
@@ -100,7 +99,6 @@ const defaultSettings: AppSettings = {
   autoStartOnBoot: true,
   enableLogging: true,
   logLevel: 'info',
-  enableTelemetry: false,
   wifiSSID: '',
   enableHotspot: false,
   hotspotName: 'TapTunes-RPi',
@@ -731,14 +729,6 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
                     <Switch
                       checked={settings.enableLogging}
                       onCheckedChange={(checked) => updateSetting('enableLogging', checked)}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <Label className="text-gray-300">Send telemetry</Label>
-                    <Switch
-                      checked={settings.enableTelemetry}
-                      onCheckedChange={(checked) => updateSetting('enableTelemetry', checked)}
                     />
                   </div>
                 </div>

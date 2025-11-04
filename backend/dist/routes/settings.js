@@ -23,7 +23,6 @@ const defaultSettings = {
     autoStartOnBoot: true,
     enableLogging: true,
     logLevel: 'info',
-    enableTelemetry: false,
     wifiSSID: '',
     enableHotspot: false,
     hotspotName: 'TapTunes-RPi',
