@@ -115,6 +115,7 @@ function App() {
               isPlaying={playbackState.isPlaying}
               audioEnhancementService={audioEnhancementService}
               apiBase={API_BASE}
+              playbackState={playbackState}
               onPlaybackModeChange={handlePlaybackModeChange}
               onEQPresetChange={handleEQPresetChange}
               onQuickPlayTrack={handleQuickPlayTrack}

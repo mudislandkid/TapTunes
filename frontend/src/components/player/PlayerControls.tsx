@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import QuickPlayLibrary from '../QuickPlayLibrary'
+import { SleepTimer } from './SleepTimer'
 import { fadeInUp } from '../../lib/animations'
 import { EQUALIZER_PRESETS } from '../../services/audioEnhancement'
-import type { PlaybackMode } from '../../types/app'
+import type { PlaybackMode, PlaybackState } from '../../types/app'
 import type { Track } from '../../types/media'
 
 interface PlayerControlsProps {
@@ -17,6 +18,7 @@ interface PlayerControlsProps {
   isPlaying: boolean
   audioEnhancementService: any
   apiBase: string
+  playbackState: PlaybackState
   onPlaybackModeChange: (mode: PlaybackMode) => Promise<void>
   onEQPresetChange: (preset: string) => void
   onQuickPlayTrack: (track: Track) => void
@@ -30,6 +32,7 @@ export const PlayerControls = memo(function PlayerControls({
   isPlaying,
   audioEnhancementService,
   apiBase,
+  playbackState,
   onPlaybackModeChange,
   onEQPresetChange,
   onQuickPlayTrack,
@@ -121,8 +124,8 @@ export const PlayerControls = memo(function PlayerControls({
             <Radio className="w-4 h-4 mr-2" />
             Scan RFID Card
           </Button>
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="w-full justify-start glass-card"
             onClick={onSwitchToLibrary}
           >
@@ -132,13 +135,19 @@ export const PlayerControls = memo(function PlayerControls({
         </div>
       </GlassCard>
 
-      {/* Quick Play Library */}
+      {/* Sleep Timer */}
+      <SleepTimer apiBase={apiBase} />
+
+      {/* Current Playlist */}
       <GlassCard className="p-6">
-        <h3 className="font-semibold mb-4 text-slate-100">Quick Play</h3>
-        <QuickPlayLibrary 
+        <h3 className="font-semibold mb-4 text-slate-100">
+          {playbackState.playlist ? 'Current Playlist' : 'No Playlist'}
+        </h3>
+        <QuickPlayLibrary
           apiBase={apiBase}
+          playlist={playbackState.playlist}
+          currentTrackIndex={playbackState.trackIndex}
           onPlayTrack={onQuickPlayTrack}
-          onSwitchToLibrary={onSwitchToLibrary}
         />
       </GlassCard>
     </motion.div>

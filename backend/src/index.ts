@@ -7,6 +7,7 @@ import rfidRoutes from './routes/rfid';
 import mediaRoutes from './routes/media';
 import systemRoutes from './routes/system';
 import settingsRoutes from './routes/settings';
+import sleepTimerRoutes from './routes/sleepTimer';
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use('/api/rfid', rfidRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/sleep-timer', sleepTimerRoutes);
 
 const HOST = process.env.HOST || '0.0.0.0';
 
