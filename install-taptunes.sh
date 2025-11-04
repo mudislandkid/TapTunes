@@ -197,10 +197,70 @@ else
     echo "Installing SPI tools (for RFID)..."
     apt-get install -y python3-spidev
 
+    echo "Installing Avahi (for taptunes.local mDNS)..."
+    apt-get install -y avahi-daemon avahi-utils
+
     echo ""
     echo -e "${GREEN}✅ System dependencies installed${NC}"
     echo ""
 fi
+
+# ============================================
+# Step 1.5: Configure mDNS (taptunes.local)
+# ============================================
+echo "=========================================="
+echo "🌐 Step 1.5: Configuring mDNS"
+echo "=========================================="
+echo ""
+
+# Check current hostname
+CURRENT_HOSTNAME=$(hostname)
+echo "Current hostname: $CURRENT_HOSTNAME"
+
+# Set hostname to taptunes if not already set
+if [ "$CURRENT_HOSTNAME" != "taptunes" ]; then
+    echo "Setting hostname to 'taptunes'..."
+
+    # Update hostname
+    hostnamectl set-hostname taptunes
+
+    # Update /etc/hosts
+    sed -i "s/127.0.1.1.*/127.0.1.1\ttaptunes/" /etc/hosts
+
+    echo "  ✓ Hostname set to 'taptunes'"
+    echo -e "${YELLOW}  ℹ️  Hostname change will take full effect after reboot${NC}"
+else
+    echo "  ✓ Hostname already set to 'taptunes'"
+fi
+
+# Ensure Avahi daemon is installed and running
+if command -v avahi-daemon &> /dev/null; then
+    # Enable and start avahi-daemon
+    systemctl enable avahi-daemon 2>/dev/null || true
+    systemctl start avahi-daemon 2>/dev/null || true
+
+    # Check if avahi is running
+    if systemctl is-active --quiet avahi-daemon; then
+        echo "  ✓ Avahi mDNS service is running"
+        echo "  ✓ Device will be accessible at: taptunes.local"
+    else
+        echo -e "${YELLOW}  ⚠ Avahi service not running - trying to start...${NC}"
+        systemctl restart avahi-daemon
+        if systemctl is-active --quiet avahi-daemon; then
+            echo "  ✓ Avahi service started successfully"
+        else
+            echo -e "${RED}  ✗ Could not start Avahi service${NC}"
+            echo "    Check logs with: sudo journalctl -u avahi-daemon"
+        fi
+    fi
+else
+    echo -e "${YELLOW}  ⚠ Avahi not installed - mDNS will not work${NC}"
+    echo "    Install with: sudo apt-get install avahi-daemon"
+fi
+
+echo ""
+echo -e "${GREEN}✅ mDNS configuration complete${NC}"
+echo ""
 
 # ============================================
 # Step 2: Install Python packages
@@ -499,6 +559,10 @@ fi
 echo "📍 Installation Location: $INSTALL_DIR"
 echo "🎵 Music Directory: $MUSIC_DIR"
 echo ""
+echo "🌐 Network Access:"
+echo "  • http://taptunes.local:3001"
+echo "  • http://$(hostname -I | awk '{print $1}'):3001"
+echo ""
 echo "Hardware Configuration:"
 echo "  • Volume Up:       GPIO 5  (Pin 29)"
 echo "  • Volume Down:     GPIO 6  (Pin 31)"
@@ -546,7 +610,9 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo ""
     echo -e "${GREEN}✅ TapTunes is running!${NC}"
     echo ""
-    echo "Access the web interface at: http://$(hostname -I | awk '{print $1}'):3001"
+    echo "Access the web interface at:"
+    echo "  • http://taptunes.local:3001"
+    echo "  • http://$(hostname -I | awk '{print $1}'):3001"
 else
     echo ""
     if [ "$EXISTING_INSTALL" = true ] && [ "$CLEAN_INSTALL" = false ]; then
