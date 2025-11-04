@@ -36,15 +36,31 @@ export const PlayerControls = memo(function PlayerControls({
   onQuickPlayTrack
 }: PlayerControlsProps) {
   return (
-    <motion.div 
+    <motion.div
       className="space-y-6"
       variants={fadeInUp}
       transition={{ delay: 0.2 }}
     >
+      {/* Sleep Timer */}
+      <SleepTimer apiBase={apiBase} />
+
+      {/* Current Playlist */}
+      <GlassCard className="p-6">
+        <h3 className="font-semibold mb-4 text-slate-100">
+          {playbackState.playlist ? 'Current Playlist' : 'No Playlist'}
+        </h3>
+        <QuickPlayLibrary
+          apiBase={apiBase}
+          playlist={playbackState.playlist}
+          currentTrackIndex={playbackState.trackIndex}
+          onPlayTrack={onQuickPlayTrack}
+        />
+      </GlassCard>
+
       {/* Playback Controls */}
       <GlassCard className="p-6">
         <h3 className="font-semibold mb-4 text-slate-100">Playback Control</h3>
-        
+
         {/* Controls Row */}
         <div className="space-y-4">
           {/* Playback Mode Toggle */}
@@ -91,7 +107,7 @@ export const PlayerControls = memo(function PlayerControls({
               </Select>
             </div>
           )}
-          
+
           {/* Status */}
           <div className="flex items-center justify-between">
             <span className="text-sm text-slate-300">Status:</span>
@@ -99,34 +115,18 @@ export const PlayerControls = memo(function PlayerControls({
               <div className={`w-2 h-2 rounded-full ${
                 needsUserInteraction && playbackMode === 'browser'
                   ? 'bg-yellow-400 animate-pulse'
-                  : isPlaying 
-                    ? 'bg-green-400 animate-pulse' 
+                  : isPlaying
+                    ? 'bg-green-400 animate-pulse'
                     : 'bg-gray-400'
               }`} />
               <span className="text-sm text-slate-200">
-                {needsUserInteraction && playbackMode === 'browser' 
-                  ? 'Click Play' 
+                {needsUserInteraction && playbackMode === 'browser'
+                  ? 'Click Play'
                   : isPlaying ? 'Playing' : 'Paused'}
               </span>
             </div>
           </div>
         </div>
-      </GlassCard>
-
-      {/* Sleep Timer */}
-      <SleepTimer apiBase={apiBase} />
-
-      {/* Current Playlist */}
-      <GlassCard className="p-6">
-        <h3 className="font-semibold mb-4 text-slate-100">
-          {playbackState.playlist ? 'Current Playlist' : 'No Playlist'}
-        </h3>
-        <QuickPlayLibrary
-          apiBase={apiBase}
-          playlist={playbackState.playlist}
-          currentTrackIndex={playbackState.trackIndex}
-          onPlayTrack={onQuickPlayTrack}
-        />
       </GlassCard>
     </motion.div>
   )
