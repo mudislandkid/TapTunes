@@ -4,13 +4,21 @@
 
 **Date**: 2025-11-04
 
-### Issue
-The nginx configuration needs to be updated to allow large file uploads (audiobook chapters can be 50-100MB+).
+### Issues
+1. The nginx configuration needs to be updated to allow large file uploads (audiobook chapters can be 50-100MB+)
+2. The nginx configuration needs to serve uploaded files from the `/uploads/` directory
 
 ### Solution
 The `scripts/taptunes-nginx.conf` file has been updated with:
 ```nginx
 client_max_body_size 500M;
+
+# Uploads directory (served from backend)
+location /uploads/ {
+    alias /home/greg/taptunes/backend/uploads/;
+    expires 30d;
+    add_header Cache-Control "public, immutable";
+}
 ```
 
 ### Deployment Steps
@@ -41,7 +49,9 @@ client_max_body_size 500M;
    sudo systemctl reload nginx
    ```
 
-5. **Verify** by uploading an audiobook with large chapter files (should now work without 413 errors).
+5. **Verify** by:
+   - Uploading an audiobook with large chapter files (should work without 413 errors)
+   - Uploading a cover image (should display correctly)
 
 ### Alternative: Manual Update
 If you prefer to manually edit the config:
@@ -50,9 +60,21 @@ If you prefer to manually edit the config:
 sudo nano /etc/nginx/sites-available/taptunes
 ```
 
-Add this line after the `server_name` line:
+Add these sections:
+
+1. After the `server_name` line:
 ```nginx
 client_max_body_size 500M;
+```
+
+2. After the `location /` block and before the `location /api/` block:
+```nginx
+# Uploads directory (served from backend)
+location /uploads/ {
+    alias /home/greg/taptunes/backend/uploads/;
+    expires 30d;
+    add_header Cache-Control "public, immutable";
+}
 ```
 
 Save, test (`sudo nginx -t`), and reload (`sudo systemctl reload nginx`).
@@ -183,7 +205,7 @@ Users can now:
 - Supported formats: JPG, JPEG, PNG, GIF, WebP
 
 ### Deployment
-Included in the build above - no additional configuration needed.
+**IMPORTANT**: This feature requires the nginx configuration update above to serve the `/uploads/` directory. Without the nginx update, uploaded cover images will not display (404 error).
 
 ### Bug Fix
-Fixed album art URL construction in `AudiobookView.tsx` to use `/uploads/` prefix instead of `${apiBase}/`, ensuring uploaded cover images load correctly.
+Fixed album art URL construction in `AudiobookView.tsx` to use `/uploads/` prefix instead of `${apiBase}/`, ensuring uploaded cover images load correctly once nginx is configured.
