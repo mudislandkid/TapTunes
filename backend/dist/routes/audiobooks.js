@@ -37,9 +37,42 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const multer_1 = __importDefault(require("multer"));
+const path_1 = __importDefault(require("path"));
+const promises_1 = __importDefault(require("fs/promises"));
 const databaseService_1 = require("../services/databaseService");
 const router = express_1.default.Router();
 const dbService = new databaseService_1.DatabaseService();
+// Configure multer for image uploads
+const imageStorage = multer_1.default.diskStorage({
+    destination: async (req, file, cb) => {
+        const uploadDir = path_1.default.join(process.cwd(), 'uploads', 'album-art');
+        await promises_1.default.mkdir(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'audiobook-' + uniqueSuffix + path_1.default.extname(file.originalname));
+    }
+});
+const imageFileFilter = (req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const extension = path_1.default.extname(file.originalname).toLowerCase();
+    if (allowedMimes.includes(file.mimetype) || allowedExtensions.includes(extension)) {
+        cb(null, true);
+    }
+    else {
+        cb(new Error('Invalid file type. Supported formats: JPG, PNG, GIF, WebP'));
+    }
+};
+const imageUpload = (0, multer_1.default)({
+    storage: imageStorage,
+    fileFilter: imageFileFilter,
+    limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit for images
+    },
+});
 // Get all audiobooks
 router.get('/', async (req, res) => {
     try {
@@ -233,6 +266,98 @@ router.post('/:id/apply-metadata', async (req, res) => {
             error: 'Failed to apply metadata',
             details: error instanceof Error ? error.message : 'Unknown error'
         });
+    }
+});
+// Upload cover image for audiobook
+router.post('/:id/upload-cover', imageUpload.single('cover'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image file uploaded' });
+        }
+        console.log(`🎨 [AUDIOBOOK] Uploading cover for audiobook: ${id}`);
+        // Get relative path from uploads directory
+        const relativePath = path_1.default.join('album-art', req.file.filename);
+        // Update audiobook with new album art path
+        const success = await dbService.updateAudiobook(id, {
+            album_art_path: relativePath
+        });
+        if (!success) {
+            // Clean up uploaded file if update fails
+            await promises_1.default.unlink(req.file.path).catch(console.error);
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+        console.log(`✅ [AUDIOBOOK] Cover uploaded: ${relativePath}`);
+        res.json({
+            success: true,
+            albumArtPath: relativePath,
+            albumArtUrl: `/uploads/${relativePath}`
+        });
+    }
+    catch (error) {
+        console.error('Error uploading audiobook cover:', error);
+        // Clean up uploaded file on error
+        if (req.file) {
+            await promises_1.default.unlink(req.file.path).catch(console.error);
+        }
+        res.status(500).json({
+            error: 'Failed to upload cover',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+// Get available album art from audiobook tracks
+router.get('/:id/available-art', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const audiobookData = await dbService.getAudiobookWithTracks(id);
+        if (!audiobookData) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+        // Get unique album art from tracks
+        const albumArtMap = new Map();
+        for (const track of audiobookData.tracks) {
+            if (track.thumbnail_path) {
+                const key = track.thumbnail_path;
+                if (!albumArtMap.has(key)) {
+                    albumArtMap.set(key, {
+                        trackId: track.id,
+                        trackTitle: track.title,
+                        trackArtist: track.artist,
+                        artPath: track.thumbnail_path,
+                        artUrl: `/uploads/${track.thumbnail_path}`
+                    });
+                }
+            }
+        }
+        const albumArtOptions = Array.from(albumArtMap.values());
+        res.json({ albumArtOptions });
+    }
+    catch (error) {
+        console.error('Error fetching available album art:', error);
+        res.status(500).json({ error: 'Failed to fetch available album art' });
+    }
+});
+// Set album art from a track
+router.put('/:id/album-art', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { albumArtPath } = req.body;
+        if (!albumArtPath) {
+            return res.status(400).json({ error: 'Album art path is required' });
+        }
+        console.log(`🎨 [AUDIOBOOK] Setting album art for audiobook: ${id} to ${albumArtPath}`);
+        const success = await dbService.updateAudiobook(id, {
+            album_art_path: albumArtPath
+        });
+        if (!success) {
+            return res.status(404).json({ error: 'Audiobook not found' });
+        }
+        res.json({ success: true });
+    }
+    catch (error) {
+        console.error('Error setting audiobook album art:', error);
+        res.status(500).json({ error: 'Failed to set album art' });
     }
 });
 exports.default = router;

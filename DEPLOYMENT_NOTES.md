@@ -145,3 +145,42 @@ This applies to both audiobooks and regular playlists, providing consistent cont
 
 ### Deployment
 This change is included in the build and will be deployed with the hardware playback fix above.
+
+---
+
+## Audiobook Cover Image Upload
+
+**Date**: 2025-11-04
+
+### Feature
+Added the ability to manually upload custom cover images for audiobooks, in addition to selecting artwork from existing tracks or downloading from MusicBrainz.
+
+### Changes Made
+
+**Backend** (`/backend/src/routes/audiobooks.ts`):
+- Added multer configuration for image uploads (JPG, PNG, GIF, WebP up to 10MB)
+- Added `POST /audiobooks/:id/upload-cover` endpoint to handle custom cover uploads
+- Added `GET /audiobooks/:id/available-art` endpoint to fetch album art from audiobook tracks
+- Added `PUT /audiobooks/:id/album-art` endpoint to set cover from existing track artwork
+
+**Frontend**:
+- Created new `AudiobookCoverPicker` component with tabbed interface
+- **Upload Tab**: Drag-and-drop or browse for custom image files
+- **From Tracks Tab**: Select from existing track artwork in the audiobook
+- Added "Change Cover" button to `AudiobookDetailDialog`
+- Image preview before upload with confirmation
+
+### User Experience
+Users can now:
+1. Upload custom cover images (JPG, PNG, GIF, WebP)
+2. Select album art from any track within the audiobook
+3. Download cover art from MusicBrainz (existing "Enhance Metadata" feature)
+
+### File Storage
+- Cover images are stored in `/uploads/album-art/`
+- Filename format: `audiobook-{timestamp}-{random}.{ext}`
+- Maximum file size: 10MB
+- Supported formats: JPG, JPEG, PNG, GIF, WebP
+
+### Deployment
+Included in the build above - no additional configuration needed.
