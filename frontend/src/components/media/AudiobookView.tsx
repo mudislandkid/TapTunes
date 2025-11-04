@@ -125,9 +125,7 @@ export const AudiobookView = memo(function AudiobookView({
 
                   {/* Action Buttons */}
                   <motion.div
-                    className="opacity-0 group-hover:opacity-100 transition-opacity mt-2 flex gap-1 justify-center"
-                    initial={{ opacity: 0 }}
-                    whileHover={{ opacity: 1 }}
+                    className="opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity mt-2 flex gap-1 justify-center"
                   >
                     <Button
                       variant="ghost"
