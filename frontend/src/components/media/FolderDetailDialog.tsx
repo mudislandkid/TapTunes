@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Image as ImageIcon, Check, X, Folder as FolderIcon } from 'lucide-react'
+import { Image as ImageIcon, Check, X, Folder as FolderIcon, Edit3 } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -146,7 +146,7 @@ export function FolderDetailDialog({
                       onClick={handleStartEditName}
                       className="h-8 w-8 p-0 text-slate-400 hover:text-slate-300"
                     >
-                      <Check className="w-4 h-4" />
+                      <Edit3 className="w-4 h-4" />
                     </Button>
                   </>
                 )}
