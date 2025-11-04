@@ -128,10 +128,10 @@ export const SleepTimer = memo(function SleepTimer({ apiBase }: SleepTimerProps)
             className="mb-4"
           >
             <GlassCard className="p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 {/* Circular Progress */}
-                <div className="relative w-20 h-20">
-                  <svg className="transform -rotate-90 w-20 h-20">
+                <div className="relative w-20 h-20 flex-shrink-0">
+                  <svg className="transform -rotate-90 w-20 h-20 overflow-visible">
                     {/* Background circle */}
                     <circle
                       cx="40"

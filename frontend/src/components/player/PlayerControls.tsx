@@ -1,6 +1,5 @@
 import { memo } from 'react'
 import { motion } from 'framer-motion'
-import { Radio, Music } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -22,7 +21,6 @@ interface PlayerControlsProps {
   onPlaybackModeChange: (mode: PlaybackMode) => Promise<void>
   onEQPresetChange: (preset: string) => void
   onQuickPlayTrack: (track: Track) => void
-  onSwitchToLibrary: () => void
 }
 
 export const PlayerControls = memo(function PlayerControls({
@@ -35,8 +33,7 @@ export const PlayerControls = memo(function PlayerControls({
   playbackState,
   onPlaybackModeChange,
   onEQPresetChange,
-  onQuickPlayTrack,
-  onSwitchToLibrary
+  onQuickPlayTrack
 }: PlayerControlsProps) {
   return (
     <motion.div 
@@ -113,25 +110,6 @@ export const PlayerControls = memo(function PlayerControls({
               </span>
             </div>
           </div>
-        </div>
-      </GlassCard>
-
-      {/* Quick Actions */}
-      <GlassCard className="p-6">
-        <h3 className="font-semibold mb-4 text-slate-100">Quick Actions</h3>
-        <div className="space-y-3">
-          <Button variant="ghost" className="w-full justify-start glass-card">
-            <Radio className="w-4 h-4 mr-2" />
-            Scan RFID Card
-          </Button>
-          <Button
-            variant="ghost"
-            className="w-full justify-start glass-card"
-            onClick={onSwitchToLibrary}
-          >
-            <Music className="w-4 h-4 mr-2" />
-            Browse Library
-          </Button>
         </div>
       </GlassCard>
 

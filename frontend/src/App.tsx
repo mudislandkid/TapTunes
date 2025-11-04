@@ -62,10 +62,6 @@ function App() {
     setIsDarkMode(!isDarkMode)
   }
 
-  const handleSwitchToLibrary = () => {
-    setActiveTab('library')
-  }
-
   return (
     <AppLayout
       activeTab={activeTab}
@@ -81,46 +77,49 @@ function App() {
         exit="exit"
       >
         {activeTab === 'player' && (
-          <motion.div 
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          <motion.div
+            className="flex flex-col-reverse lg:grid lg:grid-cols-3 gap-6"
             variants={staggerContainer}
             initial="initial"
             animate="animate"
           >
-            {/* Now Playing */}
-            <NowPlaying
-              playbackState={playbackState}
-              playbackMode={playbackMode}
-              isShuffled={isShuffled}
-              repeatMode={repeatMode}
-              volume={volume}
-              needsUserInteraction={needsUserInteraction}
-              audioElement={audioRef.current}
-              apiBase={API_BASE}
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onNext={handleNext}
-              onPrevious={handlePrevious}
-              onSeek={handleSeek}
-              onShuffleToggle={onShuffleToggle}
-              onRepeatModeChange={onRepeatModeChange}
-              onVolumeChange={handleVolumeChange}
-            />
+            {/* Now Playing - appears at bottom on mobile, left on desktop */}
+            <div className="lg:col-span-2">
+              <NowPlaying
+                playbackState={playbackState}
+                playbackMode={playbackMode}
+                isShuffled={isShuffled}
+                repeatMode={repeatMode}
+                volume={volume}
+                needsUserInteraction={needsUserInteraction}
+                audioElement={audioRef.current}
+                apiBase={API_BASE}
+                onPlay={handlePlay}
+                onPause={handlePause}
+                onNext={handleNext}
+                onPrevious={handlePrevious}
+                onSeek={handleSeek}
+                onShuffleToggle={onShuffleToggle}
+                onRepeatModeChange={onRepeatModeChange}
+                onVolumeChange={handleVolumeChange}
+              />
+            </div>
 
-            {/* Sidebar */}
-            <PlayerControls
-              playbackMode={playbackMode}
-              currentEQPreset={currentEQPreset}
-              needsUserInteraction={needsUserInteraction}
-              isPlaying={playbackState.isPlaying}
-              audioEnhancementService={audioEnhancementService}
-              apiBase={API_BASE}
-              playbackState={playbackState}
-              onPlaybackModeChange={handlePlaybackModeChange}
-              onEQPresetChange={handleEQPresetChange}
-              onQuickPlayTrack={handleQuickPlayTrack}
-              onSwitchToLibrary={handleSwitchToLibrary}
-            />
+            {/* Sidebar - appears at top on mobile, right on desktop */}
+            <div className="lg:col-span-1">
+              <PlayerControls
+                playbackMode={playbackMode}
+                currentEQPreset={currentEQPreset}
+                needsUserInteraction={needsUserInteraction}
+                isPlaying={playbackState.isPlaying}
+                audioEnhancementService={audioEnhancementService}
+                apiBase={API_BASE}
+                playbackState={playbackState}
+                onPlaybackModeChange={handlePlaybackModeChange}
+                onEQPresetChange={handleEQPresetChange}
+                onQuickPlayTrack={handleQuickPlayTrack}
+              />
+            </div>
           </motion.div>
         )}
 
