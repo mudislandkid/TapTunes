@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Radio, 
-  Music, 
-  Square, 
-  Volume2, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Radio,
+  Music,
+  Square,
+  Volume2,
   Volume1,
   Search,
   Filter,
@@ -17,7 +17,8 @@ import {
   ListMusic,
   Play,
   SkipForward,
-  SkipBack
+  SkipBack,
+  Book
 } from 'lucide-react'
 import { 
   pageVariants, 
@@ -44,7 +45,7 @@ interface RFIDCard {
   card_id: string;
   name: string;
   description?: string;
-  assignment_type?: 'track' | 'playlist' | 'album' | 'artist' | 'action';
+  assignment_type?: 'track' | 'playlist' | 'album' | 'artist' | 'audiobook' | 'stream' | 'action';
   assignment_id?: string;
   action?: string;
   created_at: string;
@@ -67,6 +68,8 @@ const assignmentTypeIcons = {
   playlist: ListMusic,
   album: Disc,
   artist: User,
+  audiobook: Book,
+  stream: Radio,
   action: Play
 }
 
@@ -81,12 +84,14 @@ const actionOptions = [
 
 const getCardColor = (card: RFIDCard) => {
   if (card.color) return card.color;
-  
+
   switch (card.assignment_type) {
     case 'track': return '#10b981'; // green
     case 'playlist': return '#3b82f6'; // blue
     case 'album': return '#8b5cf6'; // purple
     case 'artist': return '#f59e0b'; // amber
+    case 'audiobook': return '#a855f7'; // purple-500
+    case 'stream': return '#06b6d4'; // cyan
     case 'action': return '#ef4444'; // red
     default: return '#6b7280'; // gray
   }
@@ -107,6 +112,8 @@ export default function RFIDCardManager({ apiBase }: RFIDCardManagerProps) {
   const [playlists, setPlaylists] = useState<Playlist[]>([])
   const [albums, setAlbums] = useState<{id: string, name: string}[]>([])
   const [artists, setArtists] = useState<{id: string, name: string}[]>([])
+  const [audiobooks, setAudiobooks] = useState<{id: string, title: string, author: string}[]>([])
+  const [streams, setStreams] = useState<{id: string, title: string, artist?: string}[]>([])
   
   const [newCard, setNewCard] = useState({
     cardId: '',
@@ -158,6 +165,16 @@ export default function RFIDCardManager({ apiBase }: RFIDCardManagerProps) {
       const artistsResponse = await fetch(`${apiBase}/rfid/artists`)
       const artistsData = await artistsResponse.json()
       setArtists(artistsData.artists || [])
+
+      // Fetch audiobooks
+      const audiobooksResponse = await fetch(`${apiBase}/audiobooks`)
+      const audiobooksData = await audiobooksResponse.json()
+      setAudiobooks(audiobooksData || [])
+
+      // Fetch streams (radio stations)
+      const streamsResponse = await fetch(`${apiBase}/media/tracks?type=stream`)
+      const streamsData = await streamsResponse.json()
+      setStreams((streamsData.tracks || []).filter((t: any) => t.trackType === 'stream'))
     } catch (error) {
       console.error('Failed to fetch assignment options:', error)
     }
@@ -390,6 +407,8 @@ export default function RFIDCardManager({ apiBase }: RFIDCardManagerProps) {
                         <SelectItem value="playlist">Playlist</SelectItem>
                         <SelectItem value="album">Album</SelectItem>
                         <SelectItem value="artist">Artist</SelectItem>
+                        <SelectItem value="audiobook">Audiobook</SelectItem>
+                        <SelectItem value="stream">Live Stream / Radio</SelectItem>
                         <SelectItem value="action">Control Action</SelectItem>
                       </SelectContent>
                     </Select>
@@ -497,6 +516,60 @@ export default function RFIDCardManager({ apiBase }: RFIDCardManagerProps) {
                           {artists.map(artist => (
                             <SelectItem key={artist.id} value={artist.id}>
                               {artist.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {(editingCard?.assignment_type || newCard.assignmentType) === 'audiobook' && (
+                    <div className="space-y-2">
+                      <Label>Select Audiobook</Label>
+                      <Select
+                        value={editingCard?.assignment_id || newCard.assignmentId}
+                        onValueChange={(value) => {
+                          if (editingCard) {
+                            setEditingCard({ ...editingCard, assignment_id: value })
+                          } else {
+                            setNewCard(prev => ({ ...prev, assignmentId: value }))
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose an audiobook" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {audiobooks.map(audiobook => (
+                            <SelectItem key={audiobook.id} value={audiobook.id}>
+                              {audiobook.title} - {audiobook.author}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {(editingCard?.assignment_type || newCard.assignmentType) === 'stream' && (
+                    <div className="space-y-2">
+                      <Label>Select Stream / Radio</Label>
+                      <Select
+                        value={editingCard?.assignment_id || newCard.assignmentId}
+                        onValueChange={(value) => {
+                          if (editingCard) {
+                            setEditingCard({ ...editingCard, assignment_id: value })
+                          } else {
+                            setNewCard(prev => ({ ...prev, assignmentId: value }))
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a stream" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {streams.map(stream => (
+                            <SelectItem key={stream.id} value={stream.id}>
+                              {stream.title} {stream.artist && `- ${stream.artist}`}
                             </SelectItem>
                           ))}
                         </SelectContent>

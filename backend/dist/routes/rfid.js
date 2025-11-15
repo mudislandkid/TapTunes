@@ -274,6 +274,63 @@ router.post('/scan', async (req, res) => {
                     }
                 }
                 break;
+            case 'audiobook':
+                if (card.assignment_id) {
+                    const audiobookData = await databaseService.getAudiobookWithTracks(card.assignment_id);
+                    if (audiobookData && audiobookData.tracks.length > 0) {
+                        action = 'play_audiobook';
+                        data = { audiobook: audiobookData.audiobook, tracks: audiobookData.tracks };
+                        console.log(`📚 [RFID] Playing audiobook: ${audiobookData.audiobook.title} by ${audiobookData.audiobook.author} (${audiobookData.tracks.length} chapters)`);
+                        // Start audiobook playback
+                        try {
+                            const tracks = audiobookData.tracks.map(t => ({
+                                id: t.id,
+                                title: t.title,
+                                artist: t.artist,
+                                album: t.album,
+                                duration: t.duration,
+                                filePath: t.file_path,
+                                coverArt: audiobookData.audiobook.album_art_path
+                                    ? `/uploads/${audiobookData.audiobook.album_art_path}`
+                                    : t.thumbnail_path
+                                        ? `/uploads/${t.thumbnail_path}`
+                                        : undefined
+                            }));
+                            await axios_1.default.post('http://localhost:3001/api/audio/play-playlist', {
+                                tracks,
+                                playlistName: audiobookData.audiobook.title,
+                                startIndex: 0
+                            });
+                            playbackStarted = true;
+                            console.log(`✅ [RFID] Successfully started audiobook playback`);
+                        }
+                        catch (error) {
+                            console.error(`❌ [RFID] Failed to start audiobook playback:`, error);
+                        }
+                    }
+                }
+                break;
+            case 'stream':
+                if (card.assignment_id) {
+                    const stream = await databaseService.getTrackById(card.assignment_id);
+                    if (stream && stream.track_type === 'stream') {
+                        action = 'play_stream';
+                        data = { stream };
+                        console.log(`📻 [RFID] Playing stream: ${stream.title}`);
+                        // Start stream playback
+                        try {
+                            await axios_1.default.post('http://localhost:3001/api/audio/play-track', {
+                                trackId: stream.id
+                            });
+                            playbackStarted = true;
+                            console.log(`✅ [RFID] Successfully started stream playback`);
+                        }
+                        catch (error) {
+                            console.error(`❌ [RFID] Failed to start stream playback:`, error);
+                        }
+                    }
+                }
+                break;
             case 'action':
                 // Handle control actions
                 action = card.action || 'unknown';
@@ -490,7 +547,176 @@ router.post('/card-detected', async (req, res) => {
                         }
                     }
                     break;
-                // ... other assignment types (same as scan endpoint)
+                case 'playlist':
+                    if (card.assignment_id) {
+                        const playlistData = await databaseService.getPlaylistWithTracks(card.assignment_id);
+                        if (playlistData && playlistData.tracks.length > 0) {
+                            action = 'play_playlist';
+                            data = { playlist: playlistData.playlist, tracks: playlistData.tracks };
+                            console.log(`📝 [RFID] Playing playlist: ${playlistData.playlist.name} with ${playlistData.tracks.length} tracks`);
+                            try {
+                                await axios_1.default.post('http://localhost:3001/api/audio/play-playlist', {
+                                    tracks: playlistData.tracks.map(t => ({
+                                        id: t.id,
+                                        title: t.title,
+                                        artist: t.artist,
+                                        album: t.album,
+                                        duration: t.duration,
+                                        filePath: t.file_path
+                                    })),
+                                    playlistName: playlistData.playlist.name,
+                                    startIndex: 0
+                                });
+                                console.log(`✅ [RFID] Successfully started playlist playback`);
+                            }
+                            catch (error) {
+                                console.error(`❌ [RFID] Failed to start playlist playback:`, error);
+                            }
+                        }
+                    }
+                    break;
+                case 'album':
+                    if (card.assignment_id) {
+                        const tracks = await databaseService.getTracks({ search: card.assignment_id });
+                        const albumTracks = tracks.filter(t => t.album === card.assignment_id);
+                        if (albumTracks.length > 0) {
+                            action = 'play_album';
+                            data = { album: card.assignment_id, tracks: albumTracks };
+                            console.log(`💿 [RFID] Playing album: ${card.assignment_id} (${albumTracks.length} tracks)`);
+                            try {
+                                await axios_1.default.post('http://localhost:3001/api/audio/play-playlist', {
+                                    tracks: albumTracks.map(t => ({
+                                        id: t.id,
+                                        title: t.title,
+                                        artist: t.artist,
+                                        album: t.album,
+                                        duration: t.duration,
+                                        filePath: t.file_path
+                                    })),
+                                    startIndex: 0
+                                });
+                                console.log(`✅ [RFID] Successfully started album playback`);
+                            }
+                            catch (error) {
+                                console.error(`❌ [RFID] Failed to start album playback:`, error);
+                            }
+                        }
+                    }
+                    break;
+                case 'artist':
+                    if (card.assignment_id) {
+                        const tracks = await databaseService.getTracks({ search: card.assignment_id });
+                        const artistTracks = tracks.filter(t => t.artist === card.assignment_id);
+                        if (artistTracks.length > 0) {
+                            action = 'play_artist';
+                            data = { artist: card.assignment_id, tracks: artistTracks };
+                            console.log(`🎤 [RFID] Playing artist: ${card.assignment_id} (${artistTracks.length} tracks)`);
+                            try {
+                                await axios_1.default.post('http://localhost:3001/api/audio/play-playlist', {
+                                    tracks: artistTracks.map(t => ({
+                                        id: t.id,
+                                        title: t.title,
+                                        artist: t.artist,
+                                        album: t.album,
+                                        duration: t.duration,
+                                        filePath: t.file_path
+                                    })),
+                                    startIndex: 0
+                                });
+                                console.log(`✅ [RFID] Successfully started artist playback`);
+                            }
+                            catch (error) {
+                                console.error(`❌ [RFID] Failed to start artist playback:`, error);
+                            }
+                        }
+                    }
+                    break;
+                case 'audiobook':
+                    if (card.assignment_id) {
+                        const audiobookData = await databaseService.getAudiobookWithTracks(card.assignment_id);
+                        if (audiobookData && audiobookData.tracks.length > 0) {
+                            action = 'play_audiobook';
+                            data = { audiobook: audiobookData.audiobook, tracks: audiobookData.tracks };
+                            console.log(`📚 [RFID] Playing audiobook: ${audiobookData.audiobook.title} by ${audiobookData.audiobook.author} (${audiobookData.tracks.length} chapters)`);
+                            try {
+                                const tracks = audiobookData.tracks.map(t => ({
+                                    id: t.id,
+                                    title: t.title,
+                                    artist: t.artist,
+                                    album: t.album,
+                                    duration: t.duration,
+                                    filePath: t.file_path,
+                                    coverArt: audiobookData.audiobook.album_art_path
+                                        ? `/uploads/${audiobookData.audiobook.album_art_path}`
+                                        : t.thumbnail_path
+                                            ? `/uploads/${t.thumbnail_path}`
+                                            : undefined
+                                }));
+                                await axios_1.default.post('http://localhost:3001/api/audio/play-playlist', {
+                                    tracks,
+                                    playlistName: audiobookData.audiobook.title,
+                                    startIndex: 0
+                                });
+                                console.log(`✅ [RFID] Successfully started audiobook playback`);
+                            }
+                            catch (error) {
+                                console.error(`❌ [RFID] Failed to start audiobook playback:`, error);
+                            }
+                        }
+                    }
+                    break;
+                case 'stream':
+                    if (card.assignment_id) {
+                        const stream = await databaseService.getTrackById(card.assignment_id);
+                        if (stream && stream.track_type === 'stream') {
+                            action = 'play_stream';
+                            data = { stream };
+                            console.log(`📻 [RFID] Playing stream: ${stream.title}`);
+                            try {
+                                await axios_1.default.post('http://localhost:3001/api/audio/play-track', {
+                                    trackId: stream.id
+                                });
+                                console.log(`✅ [RFID] Successfully started stream playback`);
+                            }
+                            catch (error) {
+                                console.error(`❌ [RFID] Failed to start stream playback:`, error);
+                            }
+                        }
+                    }
+                    break;
+                case 'action':
+                    action = card.action || 'unknown';
+                    console.log(`⚡ [RFID] Executing action: ${action}`);
+                    try {
+                        if (action === 'play_pause') {
+                            const currentState = await axios_1.default.get('http://localhost:3001/api/audio/current');
+                            const isPlaying = currentState.data.isPlaying;
+                            if (isPlaying) {
+                                await axios_1.default.post('http://localhost:3001/api/audio/pause');
+                                console.log(`⏸️ [RFID] Paused playback`);
+                            }
+                            else {
+                                await axios_1.default.post('http://localhost:3001/api/audio/play');
+                                console.log(`▶️ [RFID] Resumed playback`);
+                            }
+                        }
+                        else if (action === 'stop') {
+                            await axios_1.default.post('http://localhost:3001/api/audio/stop');
+                            console.log(`⏹️ [RFID] Stopped playback`);
+                        }
+                        else if (action === 'next') {
+                            await axios_1.default.post('http://localhost:3001/api/audio/next');
+                            console.log(`⏭️ [RFID] Next track`);
+                        }
+                        else if (action === 'previous') {
+                            await axios_1.default.post('http://localhost:3001/api/audio/previous');
+                            console.log(`⏮️ [RFID] Previous track`);
+                        }
+                    }
+                    catch (error) {
+                        console.error(`❌ [RFID] Failed to execute action "${action}":`, error);
+                    }
+                    break;
             }
             res.json({
                 card,

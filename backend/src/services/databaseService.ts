@@ -81,8 +81,8 @@ export interface DatabaseRFIDCard {
   card_id: string; // The actual RFID card ID
   name: string;
   description?: string;
-  assignment_type?: 'track' | 'playlist' | 'album' | 'artist' | 'action';
-  assignment_id?: string; // ID of the assigned track/playlist/album/artist
+  assignment_type?: 'track' | 'playlist' | 'album' | 'artist' | 'audiobook' | 'stream' | 'action';
+  assignment_id?: string; // ID of the assigned track/playlist/album/artist/audiobook/stream
   action?: string; // For action cards (play_pause, next, previous, volume_up, volume_down)
   created_at: string;
   last_used?: string;
