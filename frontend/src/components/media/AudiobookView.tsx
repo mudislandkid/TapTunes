@@ -119,6 +119,11 @@ export const AudiobookView = memo(function AudiobookView({
                   <p className="text-xs text-slate-400 truncate mb-1">
                     {audiobook.author}
                   </p>
+                  {audiobook.description && (
+                    <p className="text-xs text-slate-500 line-clamp-2 mb-2 px-1">
+                      {audiobook.description}
+                    </p>
+                  )}
                   <p className="text-xs text-slate-500">
                     {audiobook.track_count} chapters · {formatDuration(audiobook.duration)}
                   </p>
