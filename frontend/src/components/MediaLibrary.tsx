@@ -23,6 +23,8 @@ import { TrackListView } from './media/TrackListView'
 import { FolderView } from './media/FolderView'
 import { PlaylistView } from './media/PlaylistView'
 import { AudiobookView } from './media/AudiobookView'
+import { StreamsView } from './media/StreamsView'
+import { EditStreamDialog } from './media/EditStreamDialog'
 import AudiobookUploadDialog from './media/AudiobookUploadDialog'
 import { MetadataSelectionDialog } from './media/MetadataSelectionDialog'
 
@@ -30,7 +32,7 @@ import { MetadataSelectionDialog } from './media/MetadataSelectionDialog'
 import type { Track, Folder, Playlist, MediaLibraryProps } from '../types/media'
 
 const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPlaylist }: MediaLibraryProps) {
-  const [activeTab, setActiveTab] = useState<'tracks' | 'albums' | 'artists' | 'playlists' | 'folders' | 'audiobooks'>('tracks')
+  const [activeTab, setActiveTab] = useState<'tracks' | 'albums' | 'artists' | 'playlists' | 'folders' | 'audiobooks' | 'streams'>('tracks')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('title')
@@ -49,6 +51,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   const [isCreatePlaylistDialogOpen, setIsCreatePlaylistDialogOpen] = useState(false)
   const [isEditPlaylistDialogOpen, setIsEditPlaylistDialogOpen] = useState(false)
   const [isEditTrackDialogOpen, setIsEditTrackDialogOpen] = useState(false)
+  const [isEditStreamDialogOpen, setIsEditStreamDialogOpen] = useState(false)
   const [isAddToFolderDialogOpen, setIsAddToFolderDialogOpen] = useState(false)
   const [isAddToPlaylistDialogOpen, setIsAddToPlaylistDialogOpen] = useState(false)
   const [isDeleteTrackDialogOpen, setIsDeleteTrackDialogOpen] = useState(false)
@@ -56,6 +59,7 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
   const [isAddRadioStreamDialogOpen, setIsAddRadioStreamDialogOpen] = useState(false)
   const [isUploadAudiobookDialogOpen, setIsUploadAudiobookDialogOpen] = useState(false)
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null)
+  const [selectedStream, setSelectedStream] = useState<Track | null>(null)
   const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null)
   const [dragOver, setDragOver] = useState(false)
   
@@ -514,17 +518,39 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
     }
   }
 
+  // Stream handlers
+  const handleEditStream = (stream: Track) => {
+    setSelectedStream(stream)
+    setIsEditStreamDialogOpen(true)
+  }
+
+  const handleDeleteStream = async (stream: Track) => {
+    try {
+      const response = await fetch(`${apiBase}/media/tracks/${stream.id}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        fetchLibraryData()
+      } else {
+        console.error('Failed to delete stream')
+      }
+    } catch (error) {
+      console.error('Error deleting stream:', error)
+    }
+  }
+
   // Track filtering and sorting
 
   const filteredTracks = tracks.filter(track => {
-    const matchesSearch = !searchQuery || 
+    const matchesSearch = !searchQuery ||
       track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       track.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
       track.album.toLowerCase().includes(searchQuery.toLowerCase())
-    
+
     const matchesGenre = filterGenre === 'all' || track.genre?.includes(filterGenre)
     const matchesFolder = !currentFolder || track.folderId === currentFolder
-    
+
     return matchesSearch && matchesGenre && matchesFolder
   }).sort((a, b) => {
     switch (sortBy) {
@@ -532,6 +558,24 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
       case 'artist': return a.artist.localeCompare(b.artist)
       case 'album': return a.album.localeCompare(b.album)
       case 'year': return (b.year || 0) - (a.year || 0)
+      default: return 0
+    }
+  })
+
+  // Filter streams (tracks with trackType === 'stream')
+  const filteredStreams = tracks.filter(track => {
+    const isStream = track.trackType === 'stream'
+    const matchesSearch = !searchQuery ||
+      track.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      track.artist.toLowerCase().includes(searchQuery.toLowerCase())
+
+    const matchesGenre = filterGenre === 'all' || track.genre?.includes(filterGenre)
+
+    return isStream && matchesSearch && matchesGenre
+  }).sort((a, b) => {
+    switch (sortBy) {
+      case 'title': return a.title.localeCompare(b.title)
+      case 'artist': return a.artist.localeCompare(b.artist)
       default: return 0
     }
   })
@@ -591,8 +635,9 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
         <motion.div variants={fadeInUp} transition={{ delay: 0.1 }}>
           <GlassCard className="p-2">
             <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="w-full">
-              <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 glass-card">
+              <TabsList className="grid w-full grid-cols-3 md:grid-cols-7 glass-card">
                 <TabsTrigger value="tracks">Tracks</TabsTrigger>
+                <TabsTrigger value="streams">Streams</TabsTrigger>
                 <TabsTrigger value="folders">Folders</TabsTrigger>
                 <TabsTrigger value="playlists">Playlists</TabsTrigger>
                 <TabsTrigger value="audiobooks">Audiobooks</TabsTrigger>
@@ -952,7 +997,16 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
                   formatDuration={formatDuration}
                 />
               )}
-              
+
+              {activeTab === 'streams' && (
+                <StreamsView
+                  streams={filteredStreams}
+                  onPlayTrack={handlePlayTrack}
+                  onEditStream={handleEditStream}
+                  onDeleteStream={handleDeleteStream}
+                />
+              )}
+
               {(activeTab === 'albums' || activeTab === 'artists') && (
                 <motion.div 
                   className="text-center py-12"
@@ -1258,6 +1312,15 @@ const MediaLibrary = memo(function MediaLibrary({ apiBase, onPlayTrack, onPlayPl
       <AudiobookUploadDialog
         isOpen={isUploadAudiobookDialogOpen}
         onClose={() => setIsUploadAudiobookDialogOpen(false)}
+        onSuccess={fetchLibraryData}
+      />
+
+      {/* Edit Stream Dialog */}
+      <EditStreamDialog
+        stream={selectedStream}
+        apiBase={apiBase}
+        open={isEditStreamDialogOpen}
+        onOpenChange={setIsEditStreamDialogOpen}
         onSuccess={fetchLibraryData}
       />
     </motion.div>

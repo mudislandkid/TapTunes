@@ -929,6 +929,31 @@ router.post('/radio-streams', async (req, res) => {
         res.status(500).json({ error: 'Failed to create radio stream' });
     }
 });
+// Update radio stream
+router.put('/radio-streams/:id', async (req, res) => {
+    try {
+        const { title, artist, streamUrl, genre } = req.body;
+        if (!title || !artist || !streamUrl) {
+            return res.status(400).json({ error: 'title, artist, and streamUrl are required' });
+        }
+        console.log('📻 [RADIO] Updating radio stream:', req.params.id);
+        const success = await mediaService.updateTrack(req.params.id, {
+            title,
+            artist,
+            source_url: streamUrl,
+            genre
+        });
+        if (!success) {
+            return res.status(404).json({ error: 'Stream not found' });
+        }
+        const updatedTrack = await mediaService.getTrackById(req.params.id);
+        res.json({ track: updatedTrack });
+    }
+    catch (error) {
+        console.error('Error updating radio stream:', error);
+        res.status(500).json({ error: 'Failed to update radio stream' });
+    }
+});
 // Get track by ID
 router.get('/tracks/:id', async (req, res) => {
     try {
