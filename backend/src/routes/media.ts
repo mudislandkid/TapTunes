@@ -1057,7 +1057,7 @@ router.put('/radio-streams/:id', async (req, res) => {
     const success = await mediaService.updateTrack(req.params.id, {
       title,
       artist,
-      source_url: streamUrl,
+      sourceUrl: streamUrl,
       genre
     });
 
