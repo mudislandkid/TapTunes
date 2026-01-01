@@ -274,7 +274,7 @@ export default function RFIDCardManager({ apiBase }: RFIDCardManagerProps) {
 
   const getAssignmentName = (card: RFIDCard) => {
     if (!card.assignment_id) return 'Not assigned'
-    
+
     switch (card.assignment_type) {
       case 'track':
         const track = tracks.find(t => t.id === card.assignment_id)
@@ -282,6 +282,12 @@ export default function RFIDCardManager({ apiBase }: RFIDCardManagerProps) {
       case 'playlist':
         const playlist = playlists.find(p => p.id === card.assignment_id)
         return playlist?.name || 'Unknown playlist'
+      case 'audiobook':
+        const audiobook = audiobooks.find(a => a.id === card.assignment_id)
+        return audiobook ? `${audiobook.title} - ${audiobook.author}` : 'Unknown audiobook'
+      case 'stream':
+        const stream = streams.find(s => s.id === card.assignment_id)
+        return stream ? `${stream.title}${stream.artist ? ' - ' + stream.artist : ''}` : 'Unknown stream'
       case 'album':
         return card.assignment_id
       case 'artist':
