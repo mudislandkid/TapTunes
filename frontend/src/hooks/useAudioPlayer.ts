@@ -583,26 +583,40 @@ export function useAudioPlayer({ apiBase }: UseAudioPlayerProps) {
     return () => clearInterval(interval)
   }, [playbackMode, browserControlledState])
 
-  // Set startup volume on mount
+  // Fetch current hardware volume on mount (don't override it)
   useEffect(() => {
     const initializeVolume = async () => {
-      const startupVolume = getStartupVolume()
-      console.log(`🔊 [FRONTEND] Setting startup volume to ${startupVolume}%`)
-
-      // Set browser audio element volume
-      if (audioRef.current) {
-        audioRef.current.volume = startupVolume / 100
-      }
-
-      // Set hardware volume via backend
       try {
-        await fetch(`${apiBase}/audio/volume`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ volume: startupVolume })
-        })
+        // Fetch current playback state which includes the current hardware volume
+        const response = await fetch(`${apiBase}/audio/current`)
+        const data = await response.json()
+
+        if (typeof data.volume === 'number') {
+          console.log(`🔊 [FRONTEND] Loaded current hardware volume: ${data.volume}%`)
+          setVolume(data.volume)
+
+          // Set browser audio element volume to match hardware
+          if (audioRef.current) {
+            audioRef.current.volume = data.volume / 100
+          }
+        } else {
+          // Fallback to startup volume if backend doesn't provide one
+          const startupVolume = getStartupVolume()
+          console.log(`🔊 [FRONTEND] No hardware volume found, using startup volume: ${startupVolume}%`)
+          setVolume(startupVolume)
+
+          if (audioRef.current) {
+            audioRef.current.volume = startupVolume / 100
+          }
+        }
       } catch (error) {
-        console.warn('Failed to set hardware startup volume:', error)
+        console.warn('Failed to fetch hardware volume, using startup volume:', error)
+        const startupVolume = getStartupVolume()
+        setVolume(startupVolume)
+
+        if (audioRef.current) {
+          audioRef.current.volume = startupVolume / 100
+        }
       }
     }
 

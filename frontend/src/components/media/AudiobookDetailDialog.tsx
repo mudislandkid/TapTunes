@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import { Book, Play, Clock, Edit3, Check, X, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { Book, Play, Clock, Edit3, Check, X, Sparkles, Image as ImageIcon, Plus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { AudiobookMetadataDialog } from './AudiobookMetadataDialog';
 import { AudiobookCoverPicker } from './AudiobookCoverPicker';
+import AddChaptersDialog from './AddChaptersDialog';
 
 interface Track {
   id: string;
@@ -46,6 +47,7 @@ export default function AudiobookDetailDialog({
   const [isEditing, setIsEditing] = useState(false);
   const [isMetadataDialogOpen, setIsMetadataDialogOpen] = useState(false);
   const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
+  const [isAddChaptersOpen, setIsAddChaptersOpen] = useState(false);
   const [editedTitle, setEditedTitle] = useState('');
   const [editedAuthor, setEditedAuthor] = useState('');
   const [editedDescription, setEditedDescription] = useState('');
@@ -223,6 +225,15 @@ export default function AudiobookDetailDialog({
                   <Button
                     size="sm"
                     variant="outline"
+                    onClick={() => setIsAddChaptersOpen(true)}
+                    className="h-7 text-xs border-purple-600/50 text-purple-400 hover:text-purple-300 hover:bg-purple-900/20"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Chapters
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={() => setIsCoverPickerOpen(true)}
                     className="h-7 text-xs border-slate-600/50 text-slate-400 hover:text-slate-300 hover:bg-slate-700/20"
                   >
@@ -328,6 +339,22 @@ export default function AudiobookDetailDialog({
           open={isCoverPickerOpen}
           onOpenChange={setIsCoverPickerOpen}
           onSelect={() => {
+            fetchAudiobookDetails();
+            onUpdate?.();
+          }}
+        />
+      )}
+
+      {/* Add Chapters Dialog */}
+      {audiobookId && audiobook && (
+        <AddChaptersDialog
+          audiobookId={audiobookId}
+          audiobookTitle={audiobook.title}
+          currentChapterCount={audiobook.track_count}
+          apiBase={apiBase}
+          open={isAddChaptersOpen}
+          onOpenChange={setIsAddChaptersOpen}
+          onSuccess={() => {
             fetchAudiobookDetails();
             onUpdate?.();
           }}
