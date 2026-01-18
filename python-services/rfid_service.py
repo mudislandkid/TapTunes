@@ -124,7 +124,7 @@ class RFIDReader:
 class BackendClient:
     def __init__(self, base_url: str):
         self.base_url = base_url
-    
+
     def notify_card_scan(self, card_id: str) -> bool:
         """Notify backend of card scan"""
         try:
@@ -134,7 +134,7 @@ class BackendClient:
                 json={"cardId": card_id},
                 timeout=5
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 logger.info(f"Card scan processed: {data}")
@@ -145,31 +145,60 @@ class BackendClient:
             else:
                 logger.error(f"Backend error: {response.status_code}")
                 return False
-                
+
         except requests.RequestException as e:
             logger.error(f"Failed to communicate with backend: {e}")
+            return False
+
+    def stop_playback(self) -> bool:
+        """Stop playback when card is removed"""
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/audio/stop",
+                timeout=5
+            )
+
+            if response.status_code == 200:
+                logger.info("Playback stopped (card removed)")
+                return True
+            else:
+                logger.error(f"Failed to stop playback: {response.status_code}")
+                return False
+
+        except requests.RequestException as e:
+            logger.error(f"Failed to stop playback: {e}")
             return False
 
 async def main():
     """Main service loop"""
     logger.info("Starting RFID service...")
-    
+
     rfid_reader = RFIDReader()
     backend_client = BackendClient(BACKEND_URL)
-    
+
+    last_card_id = None  # Track the last seen card
+
     try:
         while True:
             card_id = rfid_reader.read_card()
 
-            if card_id:
-                success = backend_client.notify_card_scan(card_id)
-                if success:
-                    logger.info(f"Successfully processed card: {card_id}")
-                else:
-                    logger.warning(f"Failed to process card: {card_id}")
+            # Card state changed - either new card or card removed
+            if card_id != last_card_id:
+                if card_id:
+                    # New card detected
+                    logger.info(f"New card detected: {card_id}")
+                    success = backend_client.notify_card_scan(card_id)
+                    if success:
+                        logger.info(f"Successfully processed card: {card_id}")
+                    else:
+                        logger.warning(f"Failed to process card: {card_id}")
+                elif last_card_id:
+                    # Card removed - stop playback
+                    logger.info(f"Card removed: {last_card_id}")
+                    backend_client.stop_playback()
 
-                # Prevent rapid repeated reads
-                await asyncio.sleep(2)
+                # Update last seen card
+                last_card_id = card_id
 
             # Check for cards every 500ms (2Hz) - plenty fast for RFID scanning
             await asyncio.sleep(0.5)
