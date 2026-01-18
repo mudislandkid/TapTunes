@@ -697,6 +697,10 @@ export default function Settings({ isVisible, audioEnhancementService, onInitial
                       {systemInfo.temperature}°C
                     </p>
                   </div>
+                  <div className="col-span-2">
+                    <p className="text-gray-400">IP Address</p>
+                    <p className="text-white font-mono">{networkInfo.ipAddress || 'Not available'}</p>
+                  </div>
                 </div>
                 
                 <Separator className="bg-gray-700/50" />
