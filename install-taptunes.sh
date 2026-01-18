@@ -224,17 +224,35 @@ echo "🌐 Step 1.5: Configuring mDNS"
 echo "=========================================="
 echo ""
 
-# Set default hostname if not provided
-if [ -z "$CUSTOM_HOSTNAME" ]; then
-    CUSTOM_HOSTNAME="taptunes"
-fi
-
 # Check current hostname
 CURRENT_HOSTNAME=$(hostname)
 echo "Current hostname: $CURRENT_HOSTNAME"
+
+# If hostname not provided via command line, ask user
+if [ -z "$CUSTOM_HOSTNAME" ]; then
+    echo ""
+    read -p "Would you like to change the hostname? (y/n) " -n 1 -r
+    echo ""
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Enter new hostname (will be accessible as <hostname>.local):"
+        read -p "Hostname: " CUSTOM_HOSTNAME
+
+        # Validate hostname (basic check)
+        if [ -z "$CUSTOM_HOSTNAME" ]; then
+            echo -e "${YELLOW}  ⚠️  No hostname entered, keeping current hostname${NC}"
+            CUSTOM_HOSTNAME="$CURRENT_HOSTNAME"
+        fi
+    else
+        CUSTOM_HOSTNAME="$CURRENT_HOSTNAME"
+        echo "  ✓ Keeping current hostname: $CURRENT_HOSTNAME"
+    fi
+fi
+
+echo ""
 echo "Target hostname: $CUSTOM_HOSTNAME"
 
-# Set hostname if different from target
+# Set hostname if different from current
 if [ "$CURRENT_HOSTNAME" != "$CUSTOM_HOSTNAME" ]; then
     echo "Setting hostname to '$CUSTOM_HOSTNAME'..."
 
