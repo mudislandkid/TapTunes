@@ -89,8 +89,9 @@ class RFIDReader:
             # This checks once and returns immediately instead of busy-waiting
             id, text = self.reader.read_no_block()
             if id:
-                card_id_str = str(id)
-                logger.info(f"Card detected: {card_id_str}")
+                # Normalize card ID: trim whitespace and convert to uppercase for consistency
+                card_id_str = str(id).strip().upper()
+                logger.info(f"Card detected: {card_id_str} (raw: {repr(id)}, type: {type(id).__name__})")
                 return card_id_str
             return None
         except AttributeError:
@@ -99,8 +100,9 @@ class RFIDReader:
             logger.warning("RFID library doesn't support non-blocking reads, using blocking mode")
             try:
                 card_id, text = self.reader.read()
-                card_id_str = str(card_id)
-                logger.info(f"Card detected: {card_id_str}")
+                # Normalize card ID: trim whitespace and convert to uppercase for consistency
+                card_id_str = str(card_id).strip().upper()
+                logger.info(f"Card detected: {card_id_str} (raw: {repr(card_id)}, type: {type(card_id).__name__})")
                 return card_id_str
             except Exception as e:
                 logger.error(f"Error reading RFID card: {e}")

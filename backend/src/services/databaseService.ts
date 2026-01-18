@@ -989,7 +989,12 @@ export class DatabaseService {
   }
 
   async getRFIDCardByCardId(cardId: string): Promise<DatabaseRFIDCard | null> {
-    return await this.getQuery('SELECT * FROM rfid_cards WHERE card_id = ?', [cardId]);
+    // Normalize the card ID and use case-insensitive comparison
+    const normalizedCardId = String(cardId).trim().toUpperCase();
+    return await this.getQuery(
+      'SELECT * FROM rfid_cards WHERE UPPER(TRIM(card_id)) = ?',
+      [normalizedCardId]
+    );
   }
 
   async updateRFIDCard(id: string, updates: Partial<DatabaseRFIDCard>): Promise<boolean> {

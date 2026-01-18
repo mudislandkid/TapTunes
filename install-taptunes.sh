@@ -26,8 +26,9 @@ NC='\033[0m' # No Color
 # Parse command line arguments
 CLEAN_INSTALL=false
 UPDATE_YTDLP=false
-for arg in "$@"; do
-    case $arg in
+CUSTOM_HOSTNAME=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
         --clean-install)
             CLEAN_INSTALL=true
             shift
@@ -36,13 +37,18 @@ for arg in "$@"; do
             UPDATE_YTDLP=true
             shift
             ;;
+        --hostname)
+            CUSTOM_HOSTNAME="$2"
+            shift 2
+            ;;
         --help|-h)
             echo "Usage: sudo ./install-taptunes.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --clean-install    Perform a fresh installation (recreate venv, reinstall all deps)"
-            echo "  --update-ytdlp     Update yt-dlp to latest version (for YouTube download fixes)"
-            echo "  --help, -h         Show this help message"
+            echo "  --clean-install       Perform a fresh installation (recreate venv, reinstall all deps)"
+            echo "  --update-ytdlp        Update yt-dlp to latest version (for YouTube download fixes)"
+            echo "  --hostname <name>     Set custom hostname (default: taptunes)"
+            echo "  --help, -h            Show this help message"
             echo ""
             echo "Default behavior (no flags): Fast update (preserves venv and node_modules)"
             echo ""
@@ -50,10 +56,15 @@ for arg in "$@"; do
             echo "  - Regular updates skip npm install and yt-dlp updates for speed"
             echo "  - Use --clean-install if package.json changed or things are broken"
             echo "  - Use --update-ytdlp when YouTube downloads stop working"
+            echo "  - Custom hostname will be accessible as <hostname>.local via mDNS"
+            echo ""
+            echo "Examples:"
+            echo "  sudo ./install-taptunes.sh --hostname mymusic"
+            echo "  sudo ./install-taptunes.sh --clean-install --hostname audioplayer"
             exit 0
             ;;
         *)
-            echo -e "${RED}Unknown option: $arg${NC}"
+            echo -e "${RED}Unknown option: $1${NC}"
             echo "Use --help for usage information"
             exit 1
             ;;
@@ -213,24 +224,30 @@ echo "🌐 Step 1.5: Configuring mDNS"
 echo "=========================================="
 echo ""
 
+# Set default hostname if not provided
+if [ -z "$CUSTOM_HOSTNAME" ]; then
+    CUSTOM_HOSTNAME="taptunes"
+fi
+
 # Check current hostname
 CURRENT_HOSTNAME=$(hostname)
 echo "Current hostname: $CURRENT_HOSTNAME"
+echo "Target hostname: $CUSTOM_HOSTNAME"
 
-# Set hostname to taptunes if not already set
-if [ "$CURRENT_HOSTNAME" != "taptunes" ]; then
-    echo "Setting hostname to 'taptunes'..."
+# Set hostname if different from target
+if [ "$CURRENT_HOSTNAME" != "$CUSTOM_HOSTNAME" ]; then
+    echo "Setting hostname to '$CUSTOM_HOSTNAME'..."
 
     # Update hostname
-    hostnamectl set-hostname taptunes
+    hostnamectl set-hostname "$CUSTOM_HOSTNAME"
 
     # Update /etc/hosts
-    sed -i "s/127.0.1.1.*/127.0.1.1\ttaptunes/" /etc/hosts
+    sed -i "s/127.0.1.1.*/127.0.1.1\t$CUSTOM_HOSTNAME/" /etc/hosts
 
-    echo "  ✓ Hostname set to 'taptunes'"
+    echo "  ✓ Hostname set to '$CUSTOM_HOSTNAME'"
     echo -e "${YELLOW}  ℹ️  Hostname change will take full effect after reboot${NC}"
 else
-    echo "  ✓ Hostname already set to 'taptunes'"
+    echo "  ✓ Hostname already set to '$CUSTOM_HOSTNAME'"
 fi
 
 # Ensure Avahi daemon is installed and running
@@ -242,7 +259,7 @@ if command -v avahi-daemon &> /dev/null; then
     # Check if avahi is running
     if systemctl is-active --quiet avahi-daemon; then
         echo "  ✓ Avahi mDNS service is running"
-        echo "  ✓ Device will be accessible at: taptunes.local"
+        echo "  ✓ Device will be accessible at: ${CUSTOM_HOSTNAME}.local"
     else
         echo -e "${YELLOW}  ⚠ Avahi service not running - trying to start...${NC}"
         systemctl restart avahi-daemon
@@ -560,7 +577,7 @@ echo "📍 Installation Location: $INSTALL_DIR"
 echo "🎵 Music Directory: $MUSIC_DIR"
 echo ""
 echo "🌐 Network Access:"
-echo "  • http://taptunes.local:3001"
+echo "  • http://${CUSTOM_HOSTNAME}.local:3001"
 echo "  • http://$(hostname -I | awk '{print $1}'):3001"
 echo ""
 echo "Hardware Configuration:"
@@ -611,7 +628,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo -e "${GREEN}✅ TapTunes is running!${NC}"
     echo ""
     echo "Access the web interface at:"
-    echo "  • http://taptunes.local:3001"
+    echo "  • http://${CUSTOM_HOSTNAME}.local:3001"
     echo "  • http://$(hostname -I | awk '{print $1}'):3001"
 else
     echo ""

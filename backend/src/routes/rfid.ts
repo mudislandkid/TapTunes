@@ -53,7 +53,7 @@ router.get('/cards', async (req, res) => {
 router.post('/cards', async (req, res) => {
   try {
     const { cardId, name, description, assignmentType, assignmentId, action, color } = req.body;
-    
+
     if (!cardId) {
       return res.status(400).json({ error: 'Card ID is required' });
     }
@@ -62,9 +62,13 @@ router.post('/cards', async (req, res) => {
       return res.status(400).json({ error: 'Card name is required' });
     }
 
+    // Normalize card ID: trim whitespace and convert to uppercase for consistency
+    const normalizedCardId = String(cardId).trim().toUpperCase();
+    console.log(`🎫 [RFID] Saving card - Original: "${cardId}", Normalized: "${normalizedCardId}"`);
+
     // Check if card already exists
-    const existingCard = await databaseService.getRFIDCardByCardId(cardId);
-    
+    const existingCard = await databaseService.getRFIDCardByCardId(normalizedCardId);
+
     if (existingCard) {
       // Update existing card
       await databaseService.updateRFIDCard(existingCard.id, {
@@ -75,13 +79,13 @@ router.post('/cards', async (req, res) => {
         action,
         color
       });
-      
-      const updatedCard = await databaseService.getRFIDCardByCardId(cardId);
+
+      const updatedCard = await databaseService.getRFIDCardByCardId(normalizedCardId);
       res.json(updatedCard);
     } else {
       // Create new card
       const newCard = await databaseService.createRFIDCard({
-        card_id: cardId,
+        card_id: normalizedCardId,
         name,
         description,
         assignment_type: assignmentType,
@@ -89,7 +93,7 @@ router.post('/cards', async (req, res) => {
         action,
         color
       });
-      
+
       res.json(newCard);
     }
   } catch (error) {
@@ -119,13 +123,15 @@ router.delete('/cards/:id', async (req, res) => {
 router.post('/scan', async (req, res) => {
   try {
     const { cardId } = req.body;
-    console.log(`🎫 [RFID] Card scanned: ${cardId}`);
-    
-    const card = await databaseService.getRFIDCardByCardId(cardId);
-    
+    // Normalize card ID: trim whitespace and convert to uppercase for consistency
+    const normalizedCardId = String(cardId).trim().toUpperCase();
+    console.log(`🎫 [RFID] Card scanned - Original: "${cardId}", Normalized: "${normalizedCardId}"`);
+
+    const card = await databaseService.getRFIDCardByCardId(normalizedCardId);
+
     if (!card) {
-      console.log(`❌ [RFID] Unknown card: ${cardId}`);
-      return res.status(404).json({ error: 'Card not registered', cardId });
+      console.log(`❌ [RFID] Unknown card: ${normalizedCardId}`);
+      return res.status(404).json({ error: 'Card not registered', cardId: normalizedCardId });
     }
 
     // Update card usage
@@ -453,24 +459,27 @@ router.post('/read', async (req, res) => {
 router.post('/card-detected', async (req, res) => {
   try {
     const { cardId } = req.body;
-    
+    // Normalize card ID: trim whitespace and convert to uppercase for consistency
+    const normalizedCardId = String(cardId).trim().toUpperCase();
+    console.log(`🎫 [RFID] Card detected - Original: "${cardId}", Normalized: "${normalizedCardId}"`);
+
     if (pendingCardRead) {
-      console.log(`📖 [RFID] Card detected for pending read: ${cardId}`);
+      console.log(`📖 [RFID] Card detected for pending read: ${normalizedCardId}`);
       clearTimeout(pendingCardRead.timeout);
-      pendingCardRead.resolve(cardId);
+      pendingCardRead.resolve(normalizedCardId);
       pendingCardRead = null;
       res.json({ success: true, message: 'Card read completed' });
     } else {
       // No pending read, process as normal scan
-      console.log(`🎫 [RFID] Card scanned (no pending read): ${cardId}`);
-      
-      console.log(`🔍 [RFID] Looking up card ID: ${cardId}`);
-      const card = await databaseService.getRFIDCardByCardId(cardId);
+      console.log(`🎫 [RFID] Card scanned (no pending read): ${normalizedCardId}`);
+
+      console.log(`🔍 [RFID] Looking up card ID: ${normalizedCardId}`);
+      const card = await databaseService.getRFIDCardByCardId(normalizedCardId);
       console.log(`🔍 [RFID] Card lookup result:`, card);
-      
+
       if (!card) {
-        console.log(`❌ [RFID] Unknown card: ${cardId}`);
-        return res.status(404).json({ error: 'Card not registered', cardId });
+        console.log(`❌ [RFID] Unknown card: ${normalizedCardId}`);
+        return res.status(404).json({ error: 'Card not registered', cardId: normalizedCardId });
       }
       
       console.log(`📋 [RFID] Card details - Name: ${card.name}, Type: ${card.assignment_type}, Assignment: ${card.assignment_id}`);
