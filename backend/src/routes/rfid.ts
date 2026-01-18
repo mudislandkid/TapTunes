@@ -30,7 +30,7 @@ async function loadSettings() {
 // Helper function to get current audio state
 async function getCurrentAudioState() {
   try {
-    const response = await axios.get('http://localhost:3001/api/audio/current');
+    const response = await axios.get('http://127.0.0.1:3001/api/audio/current');
     return response.data;
   } catch (error) {
     console.error('Error getting audio state:', error);
@@ -169,7 +169,7 @@ router.post('/scan', async (req, res) => {
             // Actually start playback via audio API
             console.log(`🌐 [RFID] Making HTTP request to play track...`);
             try {
-              const response = await axios.post('http://localhost:3001/api/audio/play-track', {
+              const response = await axios.post('http://127.0.0.1:3001/api/audio/play-track', {
                 trackId: track.id
               });
               playbackStarted = true;
@@ -208,7 +208,7 @@ router.post('/scan', async (req, res) => {
               
               console.log(`📝 [RFID] Sending playlist tracks to audio API:`, playlistTracks);
               
-              const response = await axios.post('http://localhost:3001/api/audio/play-playlist', {
+              const response = await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                 tracks: playlistTracks,
                 startIndex: 0
               });
@@ -240,7 +240,7 @@ router.post('/scan', async (req, res) => {
             
             // Start album playback
             try {
-              await axios.post('http://localhost:3001/api/audio/play-playlist', {
+              await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                 tracks: albumTracks.map(t => ({
                   id: t.id,
                   title: t.title,
@@ -274,7 +274,7 @@ router.post('/scan', async (req, res) => {
             
             // Start artist playback
             try {
-              await axios.post('http://localhost:3001/api/audio/play-playlist', {
+              await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                 tracks: artistTracks.map(t => ({
                   id: t.id,
                   title: t.title,
@@ -318,7 +318,7 @@ router.post('/scan', async (req, res) => {
                     : undefined
               }));
 
-              await axios.post('http://localhost:3001/api/audio/play-playlist', {
+              await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                 tracks,
                 playlistName: audiobookData.audiobook.title,
                 startIndex: 0
@@ -342,7 +342,7 @@ router.post('/scan', async (req, res) => {
 
             // Start stream playback
             try {
-              await axios.post('http://localhost:3001/api/audio/play-track', {
+              await axios.post('http://127.0.0.1:3001/api/audio/play-track', {
                 trackId: stream.id
               });
               playbackStarted = true;
@@ -363,27 +363,27 @@ router.post('/scan', async (req, res) => {
         try {
           if (action === 'play_pause') {
             // Get current state first
-            const currentState = await axios.get('http://localhost:3001/api/audio/current');
+            const currentState = await axios.get('http://127.0.0.1:3001/api/audio/current');
             const isPlaying = currentState.data.isPlaying;
             
             if (isPlaying) {
-              await axios.post('http://localhost:3001/api/audio/pause');
+              await axios.post('http://127.0.0.1:3001/api/audio/pause');
               console.log(`⏸️ [RFID] Paused playback`);
             } else {
-              await axios.post('http://localhost:3001/api/audio/play');
+              await axios.post('http://127.0.0.1:3001/api/audio/play');
               console.log(`▶️ [RFID] Resumed playback`);
             }
             playbackStarted = true;
           } else if (action === 'stop') {
-            await axios.post('http://localhost:3001/api/audio/stop');
+            await axios.post('http://127.0.0.1:3001/api/audio/stop');
             console.log(`⏹️ [RFID] Stopped playback`);
             playbackStarted = true;
           } else if (action === 'next') {
-            await axios.post('http://localhost:3001/api/audio/next');
+            await axios.post('http://127.0.0.1:3001/api/audio/next');
             console.log(`⏭️ [RFID] Next track`);
             playbackStarted = true;
           } else if (action === 'previous') {
-            await axios.post('http://localhost:3001/api/audio/previous');
+            await axios.post('http://127.0.0.1:3001/api/audio/previous');
             console.log(`⏮️ [RFID] Previous track`);
             playbackStarted = true;
           }
@@ -529,7 +529,7 @@ router.post('/card-detected', async (req, res) => {
                   case 'pause':
                     console.log(`⏸️ [RFID] Pausing playback`);
                     try {
-                      await axios.post('http://localhost:3001/api/audio/pause');
+                      await axios.post('http://127.0.0.1:3001/api/audio/pause');
                       console.log(`✅ [RFID] Playback paused successfully`);
                     } catch (error) {
                       console.error(`❌ [RFID] Failed to pause playback:`, error?.message);
@@ -539,7 +539,7 @@ router.post('/card-detected', async (req, res) => {
                   case 'stop':
                     console.log(`⏹️ [RFID] Stopping playback`);
                     try {
-                      await axios.post('http://localhost:3001/api/audio/stop');
+                      await axios.post('http://127.0.0.1:3001/api/audio/stop');
                       console.log(`✅ [RFID] Playback stopped successfully`);
                     } catch (error) {
                       console.error(`❌ [RFID] Failed to stop playback:`, error?.message);
@@ -549,7 +549,7 @@ router.post('/card-detected', async (req, res) => {
                   case 'restart':
                     console.log(`🔄 [RFID] Restarting track from beginning`);
                     try {
-                      await axios.post('http://localhost:3001/api/audio/play-track', {
+                      await axios.post('http://127.0.0.1:3001/api/audio/play-track', {
                         trackId: track.id
                       });
                       console.log(`✅ [RFID] Track restarted successfully`);
@@ -562,7 +562,7 @@ router.post('/card-detected', async (req, res) => {
                 // Same track but paused - resume playback
                 console.log(`▶️ [RFID] Same card tapped while paused - resuming playback`);
                 try {
-                  await axios.post('http://localhost:3001/api/audio/play');
+                  await axios.post('http://127.0.0.1:3001/api/audio/play');
                   console.log(`✅ [RFID] Playback resumed successfully`);
                 } catch (error) {
                   console.error(`❌ [RFID] Failed to resume playback:`, error?.message);
@@ -575,7 +575,7 @@ router.post('/card-detected', async (req, res) => {
                 
                 console.log(`🌐 [RFID] Making HTTP request to play track...`);
                 try {
-                  const response = await axios.post('http://localhost:3001/api/audio/play-track', {
+                  const response = await axios.post('http://127.0.0.1:3001/api/audio/play-track', {
                     trackId: track.id
                   });
                   console.log(`✅ [RFID] Successfully started track playback - Response:`, response.status, response.statusText);
@@ -598,7 +598,7 @@ router.post('/card-detected', async (req, res) => {
               console.log(`📝 [RFID] Playing playlist: ${playlistData.playlist.name} with ${playlistData.tracks.length} tracks`);
 
               try {
-                await axios.post('http://localhost:3001/api/audio/play-playlist', {
+                await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                   tracks: playlistData.tracks.map(t => ({
                     id: t.id,
                     title: t.title,
@@ -628,7 +628,7 @@ router.post('/card-detected', async (req, res) => {
               console.log(`💿 [RFID] Playing album: ${card.assignment_id} (${albumTracks.length} tracks)`);
 
               try {
-                await axios.post('http://localhost:3001/api/audio/play-playlist', {
+                await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                   tracks: albumTracks.map(t => ({
                     id: t.id,
                     title: t.title,
@@ -657,7 +657,7 @@ router.post('/card-detected', async (req, res) => {
               console.log(`🎤 [RFID] Playing artist: ${card.assignment_id} (${artistTracks.length} tracks)`);
 
               try {
-                await axios.post('http://localhost:3001/api/audio/play-playlist', {
+                await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                   tracks: artistTracks.map(t => ({
                     id: t.id,
                     title: t.title,
@@ -699,7 +699,7 @@ router.post('/card-detected', async (req, res) => {
                       : undefined
                 }));
 
-                await axios.post('http://localhost:3001/api/audio/play-playlist', {
+                await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                   tracks,
                   playlistName: audiobookData.audiobook.title,
                   startIndex: 0
@@ -721,7 +721,7 @@ router.post('/card-detected', async (req, res) => {
               console.log(`📻 [RFID] Playing stream: ${stream.title}`);
 
               try {
-                await axios.post('http://localhost:3001/api/audio/play-track', {
+                await axios.post('http://127.0.0.1:3001/api/audio/play-track', {
                   trackId: stream.id
                 });
                 console.log(`✅ [RFID] Successfully started stream playback`);
@@ -738,24 +738,24 @@ router.post('/card-detected', async (req, res) => {
 
           try {
             if (action === 'play_pause') {
-              const currentState = await axios.get('http://localhost:3001/api/audio/current');
+              const currentState = await axios.get('http://127.0.0.1:3001/api/audio/current');
               const isPlaying = currentState.data.isPlaying;
 
               if (isPlaying) {
-                await axios.post('http://localhost:3001/api/audio/pause');
+                await axios.post('http://127.0.0.1:3001/api/audio/pause');
                 console.log(`⏸️ [RFID] Paused playback`);
               } else {
-                await axios.post('http://localhost:3001/api/audio/play');
+                await axios.post('http://127.0.0.1:3001/api/audio/play');
                 console.log(`▶️ [RFID] Resumed playback`);
               }
             } else if (action === 'stop') {
-              await axios.post('http://localhost:3001/api/audio/stop');
+              await axios.post('http://127.0.0.1:3001/api/audio/stop');
               console.log(`⏹️ [RFID] Stopped playback`);
             } else if (action === 'next') {
-              await axios.post('http://localhost:3001/api/audio/next');
+              await axios.post('http://127.0.0.1:3001/api/audio/next');
               console.log(`⏭️ [RFID] Next track`);
             } else if (action === 'previous') {
-              await axios.post('http://localhost:3001/api/audio/previous');
+              await axios.post('http://127.0.0.1:3001/api/audio/previous');
               console.log(`⏮️ [RFID] Previous track`);
             }
           } catch (error) {
