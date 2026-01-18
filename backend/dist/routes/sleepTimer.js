@@ -100,7 +100,7 @@ async function startVolumeFade(duration) {
     try {
         console.log(`🔉 [SLEEP TIMER] Starting volume fade over ${duration} seconds`);
         // Get current volume
-        const currentResponse = await fetch('http://localhost:3001/api/audio/current');
+        const currentResponse = await fetch('http://127.0.0.1:3001/api/audio/current');
         if (!currentResponse.ok) {
             console.error('⏱️ [SLEEP TIMER] Failed to get current volume');
             return;
@@ -115,7 +115,7 @@ async function startVolumeFade(duration) {
             const progress = Math.min(elapsed / duration, 1);
             const newVolume = Math.round(startVolume * (1 - progress));
             try {
-                await fetch('http://localhost:3001/api/audio/volume', {
+                await fetch('http://127.0.0.1:3001/api/audio/volume', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ volume: newVolume })
@@ -162,7 +162,7 @@ async function pausePlayback() {
     try {
         console.log('⏱️ [SLEEP TIMER] Triggering pause playback');
         // Make internal API call to pause endpoint
-        const response = await fetch('http://localhost:3001/api/audio/pause', {
+        const response = await fetch('http://127.0.0.1:3001/api/audio/pause', {
             method: 'POST'
         });
         if (response.ok) {
