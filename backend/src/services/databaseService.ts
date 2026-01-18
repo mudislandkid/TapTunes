@@ -88,6 +88,9 @@ export interface DatabaseRFIDCard {
   last_used?: string;
   usage_count: number;
   color?: string;
+  last_track_id?: string | null; // For resuming playback
+  last_track_index?: number | null; // For resuming playlist position
+  last_position_seconds?: number | null; // For resuming playback position
 }
 
 export class DatabaseService {
@@ -293,7 +296,10 @@ export class DatabaseService {
       'ALTER TABLE rfid_cards ADD COLUMN assignment_type TEXT',
       'ALTER TABLE rfid_cards ADD COLUMN assignment_id TEXT',
       'ALTER TABLE playlists ADD COLUMN album_art_path TEXT',
-      'ALTER TABLE folders ADD COLUMN album_art_path TEXT'
+      'ALTER TABLE folders ADD COLUMN album_art_path TEXT',
+      'ALTER TABLE rfid_cards ADD COLUMN last_track_id TEXT',
+      'ALTER TABLE rfid_cards ADD COLUMN last_track_index INTEGER DEFAULT 0',
+      'ALTER TABLE rfid_cards ADD COLUMN last_position_seconds REAL DEFAULT 0'
     ];
 
     for (const sql of migrations) {
@@ -1025,6 +1031,13 @@ export class DatabaseService {
     await this.runQuery(
       'UPDATE rfid_cards SET last_used = ?, usage_count = usage_count + 1 WHERE id = ?',
       [new Date().toISOString(), id]
+    );
+  }
+
+  async saveRFIDCardPlaybackPosition(cardId: string, trackId: string | null, trackIndex: number, positionSeconds: number): Promise<void> {
+    await this.runQuery(
+      'UPDATE rfid_cards SET last_track_id = ?, last_track_index = ?, last_position_seconds = ? WHERE card_id = ?',
+      [trackId, trackIndex, positionSeconds, cardId]
     );
   }
 

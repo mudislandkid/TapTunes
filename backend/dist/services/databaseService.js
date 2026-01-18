@@ -189,7 +189,10 @@ class DatabaseService {
             'ALTER TABLE rfid_cards ADD COLUMN assignment_type TEXT',
             'ALTER TABLE rfid_cards ADD COLUMN assignment_id TEXT',
             'ALTER TABLE playlists ADD COLUMN album_art_path TEXT',
-            'ALTER TABLE folders ADD COLUMN album_art_path TEXT'
+            'ALTER TABLE folders ADD COLUMN album_art_path TEXT',
+            'ALTER TABLE rfid_cards ADD COLUMN last_track_id TEXT',
+            'ALTER TABLE rfid_cards ADD COLUMN last_track_index INTEGER DEFAULT 0',
+            'ALTER TABLE rfid_cards ADD COLUMN last_position_seconds REAL DEFAULT 0'
         ];
         for (const sql of migrations) {
             try {
@@ -772,6 +775,9 @@ class DatabaseService {
     }
     async updateRFIDCardUsage(id) {
         await this.runQuery('UPDATE rfid_cards SET last_used = ?, usage_count = usage_count + 1 WHERE id = ?', [new Date().toISOString(), id]);
+    }
+    async saveRFIDCardPlaybackPosition(cardId, trackId, trackIndex, positionSeconds) {
+        await this.runQuery('UPDATE rfid_cards SET last_track_id = ?, last_track_index = ?, last_position_seconds = ? WHERE card_id = ?', [trackId, trackIndex, positionSeconds, cardId]);
     }
     async deleteRFIDCard(id) {
         const result = await this.runQuery('DELETE FROM rfid_cards WHERE id = ?', [id]);

@@ -150,9 +150,24 @@ class BackendClient:
             logger.error(f"Failed to communicate with backend: {e}")
             return False
 
-    def stop_playback(self) -> bool:
-        """Stop playback when card is removed"""
+    def stop_playback(self, card_id: str) -> bool:
+        """Stop playback when card is removed and save position"""
         try:
+            # First, save the playback position
+            try:
+                save_response = requests.post(
+                    f"{self.base_url}/api/rfid/save-position",
+                    json={"cardId": card_id},
+                    timeout=5
+                )
+                if save_response.status_code == 200:
+                    logger.info(f"Saved playback position for card {card_id}")
+                else:
+                    logger.warning(f"Failed to save position: {save_response.status_code}")
+            except requests.RequestException as e:
+                logger.error(f"Failed to save position: {e}")
+
+            # Then stop playback
             response = requests.post(
                 f"{self.base_url}/api/audio/stop",
                 timeout=5
@@ -206,7 +221,7 @@ async def main():
                     if card_absent_count >= REMOVAL_THRESHOLD:
                         # Card has been absent for multiple consecutive reads - consider it removed
                         logger.info(f"Card removed: {last_card_id} (absent for {card_absent_count} reads)")
-                        backend_client.stop_playback()
+                        backend_client.stop_playback(last_card_id)
                         last_card_id = None
                         card_absent_count = 0
 

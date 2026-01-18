@@ -253,7 +253,7 @@ router.post('/play-track', async (req, res) => {
 // Play playlist
 router.post('/play-playlist', async (req, res) => {
   try {
-    const { tracks, startIndex = 0, playlistName } = req.body;
+    const { tracks, startIndex = 0, startPosition = 0, playlistName } = req.body;
 
     if (!tracks || !Array.isArray(tracks) || tracks.length === 0) {
       return res.status(400).json({ error: 'Tracks array is required' });
@@ -281,22 +281,24 @@ router.post('/play-playlist', async (req, res) => {
     };
 
     currentTrackIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
-    currentTime = 0;
+    currentTime = startPosition; // Start from saved position
     duration = currentPlaylist.tracks[currentTrackIndex]?.duration || 180;
     isPlaying = true;
     playbackStartTime = Date.now();
 
+    console.log(`🔄 [AUDIO] Starting playlist playback - Track ${currentTrackIndex + 1}/${tracks.length}, Position: ${startPosition}s`);
+
     // Start hardware playback if in hardware mode
     if (playbackMode === 'hardware' && currentPlaylist.tracks[currentTrackIndex]) {
       const playbackPath = getPlaybackPath(currentPlaylist.tracks[currentTrackIndex]);
-      await startHardwarePlayback(playbackPath);
+      await startHardwarePlayback(playbackPath, startPosition);
     }
 
-    res.json({ 
-      status: 'playing', 
+    res.json({
+      status: 'playing',
       playlist: currentPlaylist,
       trackIndex: currentTrackIndex,
-      playbackMode 
+      playbackMode
     });
 
   } catch (error) {

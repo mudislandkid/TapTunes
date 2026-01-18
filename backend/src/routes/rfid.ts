@@ -189,12 +189,23 @@ router.post('/scan', async (req, res) => {
           console.log(`📝 [RFID] Looking up playlist by ID: ${card.assignment_id}`);
           const playlistData = await databaseService.getPlaylistWithTracks(card.assignment_id);
           console.log(`📝 [RFID] Playlist data:`, playlistData);
-          
+
           if (playlistData && playlistData.tracks.length > 0) {
             action = 'play_playlist';
             data = { playlist: playlistData.playlist, tracks: playlistData.tracks };
-            console.log(`📝 [RFID] Playing playlist: ${playlistData.playlist.name} with ${playlistData.tracks.length} tracks`);
-            
+
+            // Check for saved playback position
+            let startIndex = 0;
+            let startPosition = 0;
+
+            if (card.last_track_index !== null && card.last_track_index !== undefined) {
+              startIndex = card.last_track_index;
+              startPosition = card.last_position_seconds || 0;
+              console.log(`🔄 [RFID] Resuming playlist: ${playlistData.playlist.name} from track ${startIndex + 1}, position ${startPosition}s`);
+            } else {
+              console.log(`📝 [RFID] Playing playlist: ${playlistData.playlist.name} with ${playlistData.tracks.length} tracks`);
+            }
+
             // Start playlist playback
             try {
               const playlistTracks = playlistData.tracks.map(t => ({
@@ -205,14 +216,15 @@ router.post('/scan', async (req, res) => {
                 duration: t.duration,
                 filePath: t.file_path
               }));
-              
+
               console.log(`📝 [RFID] Sending playlist tracks to audio API:`, playlistTracks);
-              
+
               const response = await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                 tracks: playlistTracks,
-                startIndex: 0
+                startIndex,
+                startPosition
               });
-              
+
               playbackStarted = true;
               console.log(`✅ [RFID] Successfully started playlist playback - Response:`, response.status, response.statusText);
             } catch (error) {
@@ -229,15 +241,26 @@ router.post('/scan', async (req, res) => {
       case 'album':
         if (card.assignment_id) {
           // Get all tracks from the album
-          const tracks = await databaseService.getTracks({ 
-            search: card.assignment_id 
+          const tracks = await databaseService.getTracks({
+            search: card.assignment_id
           });
           const albumTracks = tracks.filter(t => t.album === card.assignment_id);
           if (albumTracks.length > 0) {
             action = 'play_album';
             data = { album: card.assignment_id, tracks: albumTracks };
-            console.log(`💿 [RFID] Playing album: ${card.assignment_id} (${albumTracks.length} tracks)`);
-            
+
+            // Check for saved playback position
+            let startIndex = 0;
+            let startPosition = 0;
+
+            if (card.last_track_index !== null && card.last_track_index !== undefined) {
+              startIndex = card.last_track_index;
+              startPosition = card.last_position_seconds || 0;
+              console.log(`🔄 [RFID] Resuming album: ${card.assignment_id} from track ${startIndex + 1}, position ${startPosition}s`);
+            } else {
+              console.log(`💿 [RFID] Playing album: ${card.assignment_id} (${albumTracks.length} tracks)`);
+            }
+
             // Start album playback
             try {
               await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
@@ -249,7 +272,8 @@ router.post('/scan', async (req, res) => {
                   duration: t.duration,
                   filePath: t.file_path
                 })),
-                startIndex: 0
+                startIndex,
+                startPosition
               });
               playbackStarted = true;
               console.log(`✅ [RFID] Successfully started album playback`);
@@ -263,15 +287,26 @@ router.post('/scan', async (req, res) => {
       case 'artist':
         if (card.assignment_id) {
           // Get all tracks from the artist
-          const tracks = await databaseService.getTracks({ 
-            search: card.assignment_id 
+          const tracks = await databaseService.getTracks({
+            search: card.assignment_id
           });
           const artistTracks = tracks.filter(t => t.artist === card.assignment_id);
           if (artistTracks.length > 0) {
             action = 'play_artist';
             data = { artist: card.assignment_id, tracks: artistTracks };
-            console.log(`🎤 [RFID] Playing artist: ${card.assignment_id} (${artistTracks.length} tracks)`);
-            
+
+            // Check for saved playback position
+            let startIndex = 0;
+            let startPosition = 0;
+
+            if (card.last_track_index !== null && card.last_track_index !== undefined) {
+              startIndex = card.last_track_index;
+              startPosition = card.last_position_seconds || 0;
+              console.log(`🔄 [RFID] Resuming artist: ${card.assignment_id} from track ${startIndex + 1}, position ${startPosition}s`);
+            } else {
+              console.log(`🎤 [RFID] Playing artist: ${card.assignment_id} (${artistTracks.length} tracks)`);
+            }
+
             // Start artist playback
             try {
               await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
@@ -283,7 +318,8 @@ router.post('/scan', async (req, res) => {
                   duration: t.duration,
                   filePath: t.file_path
                 })),
-                startIndex: 0
+                startIndex,
+                startPosition
               });
               playbackStarted = true;
               console.log(`✅ [RFID] Successfully started artist playback`);
@@ -300,7 +336,18 @@ router.post('/scan', async (req, res) => {
           if (audiobookData && audiobookData.tracks.length > 0) {
             action = 'play_audiobook';
             data = { audiobook: audiobookData.audiobook, tracks: audiobookData.tracks };
-            console.log(`📚 [RFID] Playing audiobook: ${audiobookData.audiobook.title} by ${audiobookData.audiobook.author} (${audiobookData.tracks.length} chapters)`);
+
+            // Check for saved playback position
+            let startIndex = 0;
+            let startPosition = 0;
+
+            if (card.last_track_index !== null && card.last_track_index !== undefined) {
+              startIndex = card.last_track_index;
+              startPosition = card.last_position_seconds || 0;
+              console.log(`🔄 [RFID] Resuming audiobook: ${audiobookData.audiobook.title} from chapter ${startIndex + 1}, position ${startPosition}s`);
+            } else {
+              console.log(`📚 [RFID] Playing audiobook: ${audiobookData.audiobook.title} by ${audiobookData.audiobook.author} (${audiobookData.tracks.length} chapters)`);
+            }
 
             // Start audiobook playback
             try {
@@ -321,7 +368,8 @@ router.post('/scan', async (req, res) => {
               await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                 tracks,
                 playlistName: audiobookData.audiobook.title,
-                startIndex: 0
+                startIndex,
+                startPosition
               });
               playbackStarted = true;
               console.log(`✅ [RFID] Successfully started audiobook playback`);
@@ -595,7 +643,18 @@ router.post('/card-detected', async (req, res) => {
             if (playlistData && playlistData.tracks.length > 0) {
               action = 'play_playlist';
               data = { playlist: playlistData.playlist, tracks: playlistData.tracks };
-              console.log(`📝 [RFID] Playing playlist: ${playlistData.playlist.name} with ${playlistData.tracks.length} tracks`);
+
+              // Check for saved playback position
+              let startIndex = 0;
+              let startPosition = 0;
+
+              if (card.last_track_index !== null && card.last_track_index !== undefined) {
+                startIndex = card.last_track_index;
+                startPosition = card.last_position_seconds || 0;
+                console.log(`🔄 [RFID] Resuming playlist: ${playlistData.playlist.name} from track ${startIndex + 1}, position ${startPosition}s`);
+              } else {
+                console.log(`📝 [RFID] Playing playlist: ${playlistData.playlist.name} with ${playlistData.tracks.length} tracks`);
+              }
 
               try {
                 await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
@@ -608,7 +667,8 @@ router.post('/card-detected', async (req, res) => {
                     filePath: t.file_path
                   })),
                   playlistName: playlistData.playlist.name,
-                  startIndex: 0
+                  startIndex,
+                  startPosition
                 });
                 console.log(`✅ [RFID] Successfully started playlist playback`);
               } catch (error) {
@@ -625,7 +685,18 @@ router.post('/card-detected', async (req, res) => {
             if (albumTracks.length > 0) {
               action = 'play_album';
               data = { album: card.assignment_id, tracks: albumTracks };
-              console.log(`💿 [RFID] Playing album: ${card.assignment_id} (${albumTracks.length} tracks)`);
+
+              // Check for saved playback position
+              let startIndex = 0;
+              let startPosition = 0;
+
+              if (card.last_track_index !== null && card.last_track_index !== undefined) {
+                startIndex = card.last_track_index;
+                startPosition = card.last_position_seconds || 0;
+                console.log(`🔄 [RFID] Resuming album: ${card.assignment_id} from track ${startIndex + 1}, position ${startPosition}s`);
+              } else {
+                console.log(`💿 [RFID] Playing album: ${card.assignment_id} (${albumTracks.length} tracks)`);
+              }
 
               try {
                 await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
@@ -637,7 +708,8 @@ router.post('/card-detected', async (req, res) => {
                     duration: t.duration,
                     filePath: t.file_path
                   })),
-                  startIndex: 0
+                  startIndex,
+                  startPosition
                 });
                 console.log(`✅ [RFID] Successfully started album playback`);
               } catch (error) {
@@ -654,7 +726,18 @@ router.post('/card-detected', async (req, res) => {
             if (artistTracks.length > 0) {
               action = 'play_artist';
               data = { artist: card.assignment_id, tracks: artistTracks };
-              console.log(`🎤 [RFID] Playing artist: ${card.assignment_id} (${artistTracks.length} tracks)`);
+
+              // Check for saved playback position
+              let startIndex = 0;
+              let startPosition = 0;
+
+              if (card.last_track_index !== null && card.last_track_index !== undefined) {
+                startIndex = card.last_track_index;
+                startPosition = card.last_position_seconds || 0;
+                console.log(`🔄 [RFID] Resuming artist: ${card.assignment_id} from track ${startIndex + 1}, position ${startPosition}s`);
+              } else {
+                console.log(`🎤 [RFID] Playing artist: ${card.assignment_id} (${artistTracks.length} tracks)`);
+              }
 
               try {
                 await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
@@ -666,7 +749,8 @@ router.post('/card-detected', async (req, res) => {
                     duration: t.duration,
                     filePath: t.file_path
                   })),
-                  startIndex: 0
+                  startIndex,
+                  startPosition
                 });
                 console.log(`✅ [RFID] Successfully started artist playback`);
               } catch (error) {
@@ -682,7 +766,18 @@ router.post('/card-detected', async (req, res) => {
             if (audiobookData && audiobookData.tracks.length > 0) {
               action = 'play_audiobook';
               data = { audiobook: audiobookData.audiobook, tracks: audiobookData.tracks };
-              console.log(`📚 [RFID] Playing audiobook: ${audiobookData.audiobook.title} by ${audiobookData.audiobook.author} (${audiobookData.tracks.length} chapters)`);
+
+              // Check for saved playback position
+              let startIndex = 0;
+              let startPosition = 0;
+
+              if (card.last_track_index !== null && card.last_track_index !== undefined) {
+                startIndex = card.last_track_index;
+                startPosition = card.last_position_seconds || 0;
+                console.log(`🔄 [RFID] Resuming audiobook: ${audiobookData.audiobook.title} from chapter ${startIndex + 1}, position ${startPosition}s`);
+              } else {
+                console.log(`📚 [RFID] Playing audiobook: ${audiobookData.audiobook.title} by ${audiobookData.audiobook.author} (${audiobookData.tracks.length} chapters)`);
+              }
 
               try {
                 const tracks = audiobookData.tracks.map(t => ({
@@ -702,7 +797,8 @@ router.post('/card-detected', async (req, res) => {
                 await axios.post('http://127.0.0.1:3001/api/audio/play-playlist', {
                   tracks,
                   playlistName: audiobookData.audiobook.title,
-                  startIndex: 0
+                  startIndex,
+                  startPosition
                 });
                 console.log(`✅ [RFID] Successfully started audiobook playback`);
               } catch (error) {
@@ -822,6 +918,49 @@ router.get('/artists', async (req, res) => {
   } catch (error) {
     console.error('Error fetching artists:', error);
     res.status(500).json({ error: 'Failed to fetch artists' });
+  }
+});
+
+// Save playback position for a card (called when card is removed)
+router.post('/save-position', async (req, res) => {
+  try {
+    const { cardId } = req.body;
+
+    if (!cardId) {
+      return res.status(400).json({ error: 'Card ID required' });
+    }
+
+    // Get current audio state
+    const audioState = await getCurrentAudioState();
+
+    if (audioState && audioState.currentTrack && audioState.isPlaying) {
+      const trackId = audioState.currentTrack.id;
+      const trackIndex = audioState.trackIndex || 0;
+      const positionSeconds = audioState.currentTime || 0;
+
+      // Check if the track is a stream (don't save position for streams)
+      if (audioState.currentTrack.track_type === 'stream' || audioState.currentTrack.track_type === 'youtube') {
+        console.log(`🔄 [RFID] Not saving position for card ${cardId} - track is a stream`);
+        return res.json({ success: true, message: 'Position not saved (stream)' });
+      }
+
+      console.log(`💾 [RFID] Saving position for card ${cardId}: track ${trackId}, index ${trackIndex}, position ${positionSeconds}s`);
+
+      await databaseService.saveRFIDCardPlaybackPosition(
+        cardId,
+        trackId,
+        trackIndex,
+        positionSeconds
+      );
+
+      res.json({ success: true, message: 'Position saved' });
+    } else {
+      console.log(`ℹ️ [RFID] No playback state to save for card ${cardId}`);
+      res.json({ success: true, message: 'No active playback' });
+    }
+  } catch (error) {
+    console.error('Error saving playback position:', error);
+    res.status(500).json({ error: 'Failed to save position' });
   }
 });
 
