@@ -177,14 +177,18 @@ async def main():
     backend_client = BackendClient(BACKEND_URL)
 
     last_card_id = None  # Track the last seen card
+    card_absent_count = 0  # Count consecutive absences
+    REMOVAL_THRESHOLD = 4  # Card must be absent for 4 consecutive reads (2 seconds) to be considered removed
 
     try:
         while True:
             card_id = rfid_reader.read_card()
 
-            # Card state changed - either new card or card removed
-            if card_id != last_card_id:
-                if card_id:
+            if card_id:
+                # Card detected
+                card_absent_count = 0  # Reset absence counter
+
+                if card_id != last_card_id:
                     # New card detected
                     logger.info(f"New card detected: {card_id}")
                     success = backend_client.notify_card_scan(card_id)
@@ -192,13 +196,19 @@ async def main():
                         logger.info(f"Successfully processed card: {card_id}")
                     else:
                         logger.warning(f"Failed to process card: {card_id}")
-                elif last_card_id:
-                    # Card removed - stop playback
-                    logger.info(f"Card removed: {last_card_id}")
-                    backend_client.stop_playback()
+                    last_card_id = card_id
+            else:
+                # No card detected this cycle
+                if last_card_id:
+                    # We had a card before, increment absence counter
+                    card_absent_count += 1
 
-                # Update last seen card
-                last_card_id = card_id
+                    if card_absent_count >= REMOVAL_THRESHOLD:
+                        # Card has been absent for multiple consecutive reads - consider it removed
+                        logger.info(f"Card removed: {last_card_id} (absent for {card_absent_count} reads)")
+                        backend_client.stop_playback()
+                        last_card_id = None
+                        card_absent_count = 0
 
             # Check for cards every 500ms (2Hz) - plenty fast for RFID scanning
             await asyncio.sleep(0.5)
