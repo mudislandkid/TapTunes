@@ -203,7 +203,7 @@ else
     apt-get install -y python3 python3-pip python3-dev
 
     echo "Installing audio tools..."
-    apt-get install -y mpg123 alsa-utils
+    apt-get install -y mpg123 mpv alsa-utils
 
     echo "Installing SPI tools (for RFID)..."
     apt-get install -y python3-spidev
