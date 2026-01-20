@@ -655,6 +655,22 @@ async function startHardwarePlayback(filePath, startPosition = 0) {
         if (isStream) {
             console.log(`📻 [AUDIO] Detected stream URL - will use streaming playback`);
         }
+        // Detect stream format for proper player selection
+        let isAACStream = false;
+        if (isStream) {
+            try {
+                // Check Content-Type to detect AAC streams
+                const { execSync } = require('child_process');
+                const headers = execSync(`curl -s -I "${cleanFilePath}" | grep -i "content-type:"`, { encoding: 'utf-8' });
+                if (headers.toLowerCase().includes('audio/aac') || headers.toLowerCase().includes('audio/aacp')) {
+                    isAACStream = true;
+                    console.log(`🎵 [AUDIO] Detected AAC/AAC+ stream - will skip mpg123 (MP3-only player)`);
+                }
+            }
+            catch (err) {
+                console.log(`⚠️ [AUDIO] Could not detect stream format, will try all available players`);
+            }
+        }
         // Stop existing hardware playback
         if (hardwareProcess) {
             isKillingProcess = true; // Mark that we're intentionally killing
@@ -668,35 +684,55 @@ async function startHardwarePlayback(filePath, startPosition = 0) {
         let command;
         if (process.platform === 'linux') {
             // For Raspberry Pi / Linux, try different audio players
-            // Check if mpv is available (best for pause/resume)
-            // Try mpg123 first - it's much faster on Raspberry Pi
-            try {
-                await execAsync('which mpg123');
-                // Add -k option to seek to frame if resuming
-                if (startPosition > 0) {
-                    // mpg123 uses frames, approximate: 38.28 frames per second for 48kHz
-                    const skipFrames = Math.floor(startPosition * 38.28);
-                    console.log(`⏩ [HARDWARE] Resuming from position ${startPosition}s (skipping ${skipFrames} frames)`);
-                    command = `mpg123 -a hw:0,0 -k ${skipFrames} "${cleanFilePath}"`;
-                }
-                else {
-                    command = `mpg123 -a hw:0,0 "${cleanFilePath}"`;
-                }
-            }
-            catch {
+            // For AAC streams, skip mpg123 (MP3-only) and use mpv or ffplay
+            if (isAACStream) {
+                console.log(`🔍 [AUDIO] AAC stream detected - using mpv or ffplay`);
                 try {
-                    // Fallback to mpv if mpg123 not available
+                    // Use mpv for AAC streams (best compatibility)
                     await execAsync('which mpv');
                     command = `mpv --no-video --ao=alsa --really-quiet --volume=100 "${cleanFilePath}"`;
                 }
                 catch {
                     try {
-                        // Fallback to ffplay
+                        // Fallback to ffplay for AAC
                         await execAsync('which ffplay');
                         command = `ffplay -nodisp -autoexit "${cleanFilePath}"`;
                     }
                     catch {
-                        throw new Error('No suitable audio player found (tried mpv, mpg123, ffplay)');
+                        throw new Error('No suitable audio player found for AAC stream (tried mpv, ffplay). mpg123 cannot play AAC.');
+                    }
+                }
+            }
+            else {
+                // For MP3 streams or files, try mpg123 first - it's much faster on Raspberry Pi
+                try {
+                    await execAsync('which mpg123');
+                    // Add -k option to seek to frame if resuming
+                    if (startPosition > 0) {
+                        // mpg123 uses frames, approximate: 38.28 frames per second for 48kHz
+                        const skipFrames = Math.floor(startPosition * 38.28);
+                        console.log(`⏩ [HARDWARE] Resuming from position ${startPosition}s (skipping ${skipFrames} frames)`);
+                        command = `mpg123 -a hw:0,0 -k ${skipFrames} "${cleanFilePath}"`;
+                    }
+                    else {
+                        command = `mpg123 -a hw:0,0 "${cleanFilePath}"`;
+                    }
+                }
+                catch {
+                    try {
+                        // Fallback to mpv if mpg123 not available
+                        await execAsync('which mpv');
+                        command = `mpv --no-video --ao=alsa --really-quiet --volume=100 "${cleanFilePath}"`;
+                    }
+                    catch {
+                        try {
+                            // Fallback to ffplay
+                            await execAsync('which ffplay');
+                            command = `ffplay -nodisp -autoexit "${cleanFilePath}"`;
+                        }
+                        catch {
+                            throw new Error('No suitable audio player found (tried mpg123, mpv, ffplay)');
+                        }
                     }
                 }
             }
